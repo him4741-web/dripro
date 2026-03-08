@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { db, auth, addNews, addChat } from "./firebase";
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, getDoc, updateDoc, increment } from "firebase/firestore";
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 
 // ============================================================
 //  DATA
@@ -197,6 +200,15 @@ function ChatTab() {
   const [msgs, setMsgs] = useState(() =>
     MSGS.map(m => ({ ...m, replyList: [] }))
   );
+  useEffect(() => {
+    const q = query(collection(db, "chats"), orderBy("createdAt", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      if (!snap.empty) {
+        setMsgs(snap.docs.map(d => ({ ...d.data(), id: d.id, replyList: d.data().replyList || [] })));
+      }
+    }, () => {});
+    return () => unsub();
+  }, []);
   const [input, setInput] = useState("");
   const [liked, setLiked] = useState({});
   const [reported, setReported] = useState({});

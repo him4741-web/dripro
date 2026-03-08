@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { db, auth } from "./firebase";
+import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, doc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 // ===== Admin Demo Data =====
 const DEMO_MEMBERS = [

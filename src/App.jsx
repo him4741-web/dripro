@@ -135,11 +135,11 @@ function BookingModal({ news, onClose }) {
 }
 
 // NEWS TAB
-function NewsTab() {
+function NewsTab({news:NEWS_DATA=NEWS, userInfo}) {
   const [exp, setExp] = useState(null);
   const [filter, setFilter] = useState("all");
   const [booking, setBooking] = useState(null);
-  const filtered = filter === "all" ? NEWS : NEWS.filter(n => n.cat === filter);
+  const filtered = filter === "all" ? NEWS_DATA : NEWS_DATA.filter(n => n.cat === filter);
   return (
     <div className="sg">
       {booking && <BookingModal news={booking} onClose={() => setBooking(null)} />}
@@ -196,7 +196,7 @@ function NewsTab() {
 }
 
 // CHAT
-function ChatTab() {
+function ChatTab({userInfo}) {
   const [msgs, setMsgs] = useState(() =>
     MSGS.map(m => ({ ...m, replyList: [] }))
   );
@@ -230,7 +230,7 @@ function ChatTab() {
   };
   const doSend = () => {
     setMsgs(p => [...p, {
-      id: Date.now(), user: U.name, av: U.avatar, co: U.company,
+      id: Date.now(), user: (userInfo?.name||''), av: (userInfo?.avatar||'U'), co: (userInfo?.company||''),
       text: input,
       time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
       likes: 0, replies: 0, replyList: []
@@ -250,7 +250,7 @@ function ChatTab() {
       ...m,
       replies: m.replies + 1,
       replyList: [...(m.replyList || []), {
-        id: Date.now(), user: U.name, av: U.avatar, co: U.company,
+        id: Date.now(), user: (userInfo?.name||''), av: (userInfo?.avatar||'U'), co: (userInfo?.company||''),
         text,
         time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
       }]
@@ -342,7 +342,7 @@ function ChatTab() {
                     </div>
                   ))}
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 9, background: C.accG, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{U.avatar}</div>
+                    <div style={{ width: 28, height: 28, borderRadius: 9, background: C.accG, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{(userInfo?.avatar||'U')}</div>
                     <input
                       value={replyInput[m.id] || ""}
                       onChange={e => setReplyInput(p => ({ ...p, [m.id]: e.target.value }))}
@@ -375,8 +375,7 @@ function ChatTab() {
 }
 
 // EVENTS
-function EventsTab() {
-  const [applied, setApplied] = useState({});
+function EventsTab({applied={}, setApplied=()=>{}, authUser}) {
   const tC={study:C.acc,seminar:C.grn,consul:C.org};
   const tL={study:"📖 勉強会",seminar:"🎤 セミナー",consul:"💼 コンサル"};
   return (
@@ -387,7 +386,14 @@ function EventsTab() {
           <h3 style={{fontSize:15,fontWeight:700,color:C.t1,lineHeight:1.45,margin:"0 0 10px"}}>{ev.title}</h3>
           <div style={{display:"flex",flexWrap:"wrap",gap:10,fontSize:12,color:C.t3,marginBottom:14}}><span>📅 {ev.date}</span>{ev.time&&<span>🕐 {ev.time}</span>}</div>
           <div style={{marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:11,color:C.t3}}>{ev.applied}/{ev.cap}名</span><span style={{fontSize:11,fontWeight:700,color:left<=5?C.red:C.grn}}>残{left}席</span></div><div style={{height:5,borderRadius:3,background:C.bd}}><div style={{height:"100%",borderRadius:3,width:`${pct}%`,background:pct>80?C.red:C.grn,transition:"width .5s"}} /></div></div>
-          <button className="tp" onClick={()=>setApplied(p=>({...p,[ev.id]:true}))} disabled={done} style={{width:"100%",padding:14,borderRadius:14,border:done?`1.5px solid ${C.grn}`:"none",background:done?"transparent":C.acc,color:done?C.grn:"#fff",fontSize:13,fontWeight:700,cursor:done?"default":"pointer"}}>{done?"✅ 申込済み":"申し込む"}</button>
+          <button className="tp" onClick={async()=>{
+              setApplied(p=>({...p,[ev.id]:true}));
+              if (authUser) {
+                const {db} = require('./firebase');
+                const {collection, addDoc, serverTimestamp} = require('firebase/firestore');
+                addDoc(collection(db,'seminar_entries'),{uid:authUser.uid,eventId:ev.id,eventTitle:ev.title,createdAt:serverTimestamp()}).catch(()=>{});
+              }
+            }} disabled={done} style={{width:"100%",padding:14,borderRadius:14,border:done?`1.5px solid ${C.grn}`:"none",background:done?"transparent":C.acc,color:done?C.grn:"#fff",fontSize:13,fontWeight:700,cursor:done?"default":"pointer"}}>{done?"✅ 申込済み":"申し込む"}</button>
         </Card>
       ); })}
     </div>
@@ -395,12 +401,12 @@ function EventsTab() {
 }
 
 // PROFILE
-function ProfileTab() {
+function ProfileTab({userInfo}) {
   const [eN,setEN]=useState(true);const [pN,setPN]=useState(true);
   const Tg=({on,set})=>(<button onClick={()=>set(!on)} className="tp" style={{width:50,height:30,borderRadius:15,border:"none",background:on?C.grn:C.bd,cursor:"pointer",position:"relative",transition:"background .2s"}}><div style={{width:24,height:24,borderRadius:12,background:"#fff",position:"absolute",top:3,left:on?23:3,transition:"left .2s",boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}} /></button>);
   return (
     <div className="sg">
-      <Card style={{marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:14}}><div style={{width:56,height:56,borderRadius:18,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:800}}>{U.avatar}</div><div style={{flex:1}}><div style={{fontSize:17,fontWeight:800,color:C.t1}}>{U.name}</div><div style={{fontSize:12,color:C.t3}}>{U.company}</div></div><Badge color={C.acc} filled>Pro</Badge></div></Card>
+      <Card style={{marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:14}}><div style={{width:56,height:56,borderRadius:18,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:800}}>{(userInfo?.avatar||'U')}</div><div style={{flex:1}}><div style={{fontSize:17,fontWeight:800,color:C.t1}}>{(userInfo?.name||'')}</div><div style={{fontSize:12,color:C.t3}}>{(userInfo?.company||'')}</div></div><Badge color={C.acc} filled>Pro</Badge></div></Card>
       <Card style={{marginBottom:12}}>
         <div style={{fontSize:12,fontWeight:700,color:C.t3,marginBottom:14}}>🔔 通知設定</div>
         {[{label:"メール通知",desc:"新着ニュース・重要なお知らせ",on:eN,set:setEN},{label:"プッシュ通知",desc:"緊急速報・期限リマインド",on:pN,set:setPN}].map((s,i)=>(
@@ -491,6 +497,13 @@ function AuthScreen() {
             <button type="submit" disabled={loading} style={{width:'100%',padding:14,borderRadius:12,border:'none',background:loading?'#1f2535':accG,color:'#fff',fontSize:14,fontWeight:700,cursor:loading?'not-allowed':'pointer',marginTop:8,fontFamily:F,transition:'all .2s'}}>
               {loading?'処理中...':(mode==='login'?'ログイン':'アカウント作成')}
             </button>
+          {mode==='ログイン'&&<button type="button" onClick={async()=>{
+              if(!email){setError('メールアドレスを入力してください');return;}
+              const {sendPasswordResetEmail}=await import('firebase/auth');
+              const {auth}=await import('./firebase');
+              try{await sendPasswordResetEmail(auth,email);setError('リセットメールを送信しました');}
+              catch(e){setError('メール送信に失敗しました');}
+            }} style={{width:'100%',padding:'10px 0',marginTop:6,background:'none',border:'none',color:'#4f8ff7',fontSize:12,cursor:'pointer',fontFamily:F}}>パスワードを忘れた方はこちら</button>}
           </form>
         </div>
         <p style={{textAlign:'center',fontSize:11,color:'#4a5568',marginTop:16,lineHeight:1.7}}>登録することで利用規約・プライバシーポリシーに同意します</p>
@@ -501,6 +514,9 @@ function AuthScreen() {
 
 export default function App() {
   const [authUser, setAuthUser] = React.useState(undefined);
+  const [userInfo, setUserInfo] = useState(null);
+  const [liveNews, setLiveNews] = useState([]);
+  const [seminarApplied, setSeminarApplied] = useState({});
   const [tab, setTab] = useState("news");
   const [splash, setSplash] = useState(true);
   const mobile = useM();
@@ -510,6 +526,24 @@ export default function App() {
     const unsub = onAuthStateChanged(auth, u => setAuthUser(u !== null ? u : null));
     return unsub;
   }, []);
+  useEffect(() => {
+    if (!authUser) { setUserInfo(null); return; }
+    const {db} = require('./firebase');
+    const {doc, getDoc, collection, onSnapshot, query, orderBy, getDocs} = require('firebase/firestore');
+    getDoc(doc(db, 'users', authUser.uid)).then(d => {
+      const data = d.exists() ? d.data() : {};
+      const name = data.name || authUser.displayName || 'メンバー';
+      setUserInfo({ name, company: data.company || '', avatar: name.charAt(0), plan: data.plan || 'free', uid: authUser.uid, email: authUser.email });
+    });
+    const q = query(collection(db, 'news'), orderBy('createdAt', 'desc'));
+    const unsub2 = onSnapshot(q, snap => { if (!snap.empty) setLiveNews(snap.docs.map(d => ({id:d.id,...d.data()}))); }, ()=>{});
+    getDocs(collection(db, 'seminar_entries')).then(snap => {
+      const applied = {};
+      snap.docs.forEach(d => { if (d.data().uid === authUser.uid) applied[d.data().eventId] = true; });
+      setSeminarApplied(applied);
+    }).catch(()=>{});
+    return () => unsub2();
+  }, [authUser]);
   useEffect(() => { const t = setTimeout(() => setSplash(false), 1600); return () => clearTimeout(t); }, []);
   if (authUser === undefined) return (
     <div style={{minHeight:'100vh',background:'#0b0d11',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -523,14 +557,14 @@ export default function App() {
 
   if (splash) return (<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`radial-gradient(ellipse at 50% 35%,#111b33 0%,${C.bg} 65%)`,fontFamily:F}}><style>{CSS}</style><div style={{width:68,height:68,borderRadius:20,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,animation:"glow 2s infinite",marginBottom:16}}>📰</div><div style={{fontSize:24,fontWeight:900,color:"#fff",animation:"up .4s ease .2s both"}}>ドリプロ</div><div style={{fontSize:11,color:C.t3,marginTop:5,animation:"up .4s ease .35s both",letterSpacing:2.5}}>障害福祉GH特化ニュース</div></div>);
 
-  const Content=()=>({news:<NewsTab/>,chat:<ChatTab/>,events:<EventsTab/>,profile:<ProfileTab/>})[tab]||<NewsTab/>;
+  const Content=()=>({news:<NewsTab news={liveNews.length>0?liveNews:NEWS} userInfo={userInfo}/>,chat:<ChatTab userInfo={userInfo}/>,events:<EventsTab applied={seminarApplied} setApplied={setSeminarApplied} authUser={authUser}/>,profile:<ProfileTab userInfo={userInfo}/>})[tab]||<NewsTab news={liveNews.length>0?liveNews:NEWS} userInfo={userInfo}/>;
 
   if (!mobile) return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,display:"flex"}}><style>{CSS}</style>
       <aside style={{width:230,minHeight:"100vh",background:C.s,borderRight:`1px solid ${C.bd}`,position:"fixed",left:0,top:0,bottom:0,display:"flex",flexDirection:"column",zIndex:40}}>
         <div style={{display:"flex",alignItems:"center",gap:10,padding:"24px 22px 28px"}}><div style={{width:36,height:36,borderRadius:11,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17}}>📰</div><div><span style={{fontSize:17,fontWeight:900,color:C.t1}}>ドリプロ</span><div style={{fontSize:9,color:C.t3,letterSpacing:1}}>GH特化ニュース</div></div></div>
         <nav style={{flex:1,padding:"0 8px"}}>{nav.map(({id,label,Icon,badge})=>{const a=tab===id;return(<button key={id} onClick={()=>setTab(id)} className="tp" style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 16px",border:"none",borderRadius:12,background:a?C.accS:"transparent",cursor:"pointer",color:a?C.acc:C.t2,marginBottom:2}}><Icon/><span style={{fontSize:13,fontWeight:a?700:500}}>{label}</span>{badge>0&&<span style={{marginLeft:"auto",minWidth:20,height:20,borderRadius:10,background:C.red,color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{badge}</span>}</button>);})}</nav>
-        <div style={{padding:"16px 18px",borderTop:`1px solid ${C.bd}`,display:"flex",alignItems:"center",gap:10}}><div style={{width:36,height:36,borderRadius:11,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:14,fontWeight:700}}>{U.avatar}</div><div><div style={{fontSize:12,fontWeight:600,color:C.t1}}>{U.name}</div><div style={{fontSize:10,color:C.t3}}>{U.company}</div></div></div>
+        <div style={{padding:"16px 18px",borderTop:`1px solid ${C.bd}`,display:"flex",alignItems:"center",gap:10}}><div style={{width:36,height:36,borderRadius:11,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:14,fontWeight:700}}>{(userInfo?.avatar||'U')}</div><div><div style={{fontSize:12,fontWeight:600,color:C.t1}}>{(userInfo?.name||'')}</div><div style={{fontSize:10,color:C.t3}}>{(userInfo?.company||'')}</div></div></div>
       </aside>
       <div style={{flex:1,marginLeft:230,minHeight:"100vh"}}>
         <header className="gl" style={{position:"sticky",top:0,zIndex:30,borderBottom:`1px solid ${C.bd}`,padding:"15px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><h1 style={{fontSize:18,fontWeight:900,color:C.t1,margin:0}}>{titles[tab]}</h1><div style={{width:38,height:38,borderRadius:12,border:`1px solid ${C.bd}`,background:"rgba(255,255,255,0.03)",display:"flex",alignItems:"center",justifyContent:"center",color:C.t2,position:"relative",cursor:"pointer"}}><IBell/><div style={{position:"absolute",top:-2,right:-2,width:8,height:8,borderRadius:4,background:C.red}}/></div></header>
@@ -541,7 +575,7 @@ export default function App() {
 
   return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,maxWidth:480,margin:"0 auto",position:"relative"}}><style>{CSS}</style>
-      <header className="gl" style={{position:"sticky",top:0,zIndex:50,borderBottom:`1px solid ${C.bd}`,padding:"12px 16px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:32,height:32,borderRadius:10,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>📰</div><span style={{fontSize:16,fontWeight:900,color:C.t1}}>{titles[tab]}</span></div><div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{width:34,height:34,borderRadius:10,border:`1px solid ${C.bd}`,display:"flex",alignItems:"center",justifyContent:"center",color:C.t2,position:"relative"}}><IBell/><div style={{position:"absolute",top:-1,right:-1,width:7,height:7,borderRadius:4,background:C.red}}/></div><div style={{width:32,height:32,borderRadius:10,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,fontWeight:700}}>{U.avatar}</div></div></div></header>
+      <header className="gl" style={{position:"sticky",top:0,zIndex:50,borderBottom:`1px solid ${C.bd}`,padding:"12px 16px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:32,height:32,borderRadius:10,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>📰</div><span style={{fontSize:16,fontWeight:900,color:C.t1}}>{titles[tab]}</span></div><div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{width:34,height:34,borderRadius:10,border:`1px solid ${C.bd}`,display:"flex",alignItems:"center",justifyContent:"center",color:C.t2,position:"relative"}}><IBell/><div style={{position:"absolute",top:-1,right:-1,width:7,height:7,borderRadius:4,background:C.red}}/></div><div style={{width:32,height:32,borderRadius:10,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,fontWeight:700}}>{(userInfo?.avatar||'U')}</div></div></div></header>
       <main style={{padding:"14px 14px 100px",animation:"fadeIn .2s ease"}}><Content/></main>
       <nav className="gl" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,borderTop:`1px solid ${C.bd}`,display:"flex",padding:"4px 6px 24px",zIndex:50}}>
         {nav.map(({id,label,Icon,badge})=>{const a=tab===id;return(<button key={id} onClick={()=>setTab(id)} className="tp" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,border:"none",background:"none",cursor:"pointer",padding:"8px 0",color:a?C.acc:C.t3}}><div style={{position:"relative",width:46,height:30,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:15,background:a?C.accS:"transparent",transition:"background .2s"}}><Icon/>{badge>0&&<div style={{position:"absolute",top:-2,right:1,minWidth:16,height:16,borderRadius:8,background:C.red,color:"#fff",fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",border:`2px solid ${C.bg}`}}>{badge}</div>}</div><span style={{fontSize:10,fontWeight:a?700:500}}>{label}</span></button>);})}

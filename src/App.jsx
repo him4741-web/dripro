@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { db, auth, addNews, addChat } from "./firebase";
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, getDoc, updateDoc, increment } from "firebase/firestore";
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, getDoc, getDocs, updateDoc, increment, deleteDoc } from "firebase/firestore";
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile } from "firebase/auth";
 
 // ============================================================
 //  DATA
@@ -389,8 +389,8 @@ function EventsTab({applied={}, setApplied=()=>{}, authUser}) {
           <button className="tp" onClick={async()=>{
               setApplied(p=>({...p,[ev.id]:true}));
               if (authUser) {
-                const {db} = require('./firebase');
-                const {collection, addDoc, serverTimestamp} = require('firebase/firestore');
+                // db imported
+                // imported at top
                 addDoc(collection(db,'seminar_entries'),{uid:authUser.uid,eventId:ev.id,eventTitle:ev.title,createdAt:serverTimestamp()}).catch(()=>{});
               }
             }} disabled={done} style={{width:"100%",padding:14,borderRadius:14,border:done?`1.5px solid ${C.grn}`:"none",background:done?"transparent":C.acc,color:done?C.grn:"#fff",fontSize:13,fontWeight:700,cursor:done?"default":"pointer"}}>{done?"✅ 申込済み":"申し込む"}</button>
@@ -413,7 +413,7 @@ function ProfileTab({userInfo}) {
           <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 0",borderBottom:i===0?`1px solid ${C.bd}`:"none"}}><div><div style={{fontSize:13,fontWeight:600,color:C.t1}}>{s.label}</div><div style={{fontSize:11,color:C.t3,marginTop:2}}>{s.desc}</div></div><Tg on={s.on} set={s.set} /></div>
         ))}
       </Card>
-      <Card style={{marginBottom:10}}><button className="tp" onClick={async()=>{const {signOut}=await import('firebase/auth');const {auth}=await import('./firebase');await signOut(auth);}} style={{width:"100%",padding:13,borderRadius:12,border:"none",background:"linear-gradient(135deg,#4f8ff7,#7c5cfc)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>ログアウト</button></Card>
+      <Card style={{marginBottom:10}}><button className="tp" onClick={async()=>{await signOut(auth);}} style={{width:"100%",padding:13,borderRadius:12,border:"none",background:"linear-gradient(135deg,#4f8ff7,#7c5cfc)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>ログアウト</button></Card>
   <Card><button className="tp" style={{width:"100%",padding:13,borderRadius:12,border:`1px solid ${C.red}25`,background:"transparent",color:C.red,fontSize:13,fontWeight:600,cursor:"pointer"}}>退会する</button></Card>
     </div>
   );
@@ -444,13 +444,8 @@ function AuthScreen() {
     e.preventDefault(); setLoading(true); setError('');
     try {
       if (mode === 'login') {
-        const {signInWithEmailAndPassword} = await import('firebase/auth');
-        const {auth} = await import('./firebase');
         await signInWithEmailAndPassword(auth, email, pass);
       } else {
-        const {createUserWithEmailAndPassword, updateProfile} = await import('firebase/auth');
-        const {auth, db} = await import('./firebase');
-        const {doc, setDoc, serverTimestamp} = await import('firebase/firestore');
         const r = await createUserWithEmailAndPassword(auth, email, pass);
         await updateProfile(r.user, {displayName: name});
         await setDoc(doc(db, 'users', r.user.uid), {
@@ -499,8 +494,6 @@ function AuthScreen() {
             </button>
           {mode==='ログイン'&&<button type="button" onClick={async()=>{
               if(!email){setError('メールアドレスを入力してください');return;}
-              const {sendPasswordResetEmail}=await import('firebase/auth');
-              const {auth}=await import('./firebase');
               try{await sendPasswordResetEmail(auth,email);setError('リセットメールを送信しました');}
               catch(e){setError('メール送信に失敗しました');}
             }} style={{width:'100%',padding:'10px 0',marginTop:6,background:'none',border:'none',color:'#4f8ff7',fontSize:12,cursor:'pointer',fontFamily:F}}>パスワードを忘れた方はこちら</button>}
@@ -521,15 +514,12 @@ export default function App() {
   const [splash, setSplash] = useState(true);
   const mobile = useM();
   React.useEffect(() => {
-    const {onAuthStateChanged} = require('firebase/auth');
-    const {auth} = require('./firebase');
     const unsub = onAuthStateChanged(auth, u => setAuthUser(u !== null ? u : null));
     return unsub;
   }, []);
   useEffect(() => {
     if (!authUser) { setUserInfo(null); return; }
-    const {db} = require('./firebase');
-    const {doc, getDoc, collection, onSnapshot, query, orderBy, getDocs} = require('firebase/firestore');
+    // db imported at top
     getDoc(doc(db, 'users', authUser.uid)).then(d => {
       const data = d.exists() ? d.data() : {};
       const name = data.name || authUser.displayName || 'メンバー';

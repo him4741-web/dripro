@@ -11,7 +11,7 @@ const U = { name: "田中太郎", company: "〇〇福祉会", avatar: "田", pla
 const NEWS = [
   { id: 1, cat: "law", title: "GH「総量規制」導入 — 厚労省が正式提案", summary: "社会保障審議会障害者部会にてGH新規指定を自治体判断で制限できる「総量規制」を提案。既存事業所の競争環境が大きく変わる可能性。", source: "厚生労働省", date: "2025-12-08", imp: "high", advice: "既存事業所にはプラス材料。「重度対応」への体制強化で例外枠を確保する戦略が有効。", read: "3分" },
   { id: 2, cat: "reward", title: "【速報】2026年6月〜 新規GHの基本報酬引き下げ", summary: "令和6年度報酬改定により新規指定GHの基本報酬引き下げ。既存事業所は対象外だが影響は広範囲。", source: "厚生労働省", date: "2025-12-16", imp: "high", advice: "新規参入検討中なら「2026年5月末までに指定取得」が最優先アクション。", read: "4分" },
-  { id: 3, cat: "law", title: "地域連携推進会議の義務化（令和7年度〜）", summary: "障害者総合支援法改正に基づき外部の目を入れる会議設置が義務化。年2回以上の開催と議事録公開が求められる。", source: "厚生労働省", date: "2025-04-01", imp: "high", advice: "民生委員・地域包括の職員に早めに声かけ。議事録はWebで公開し透明性をアピール。", read: "3分" },
+  { id: 3, cat: "law", title: "地域連携推進会議の義務化（令和7年度〜）", summary: "障害者総合支援法改正に基づき外部の目を入れる会議設置が義務化。年2回以上の開催議事録公開が求められる。", source: "厚生労働省", date: "2025-04-01", imp: "high", advice: "民生委員・地域包括の職員に早めに声かけ。議事録はWebで公開し透明性をアピール。", read: "3分" },
   { id: 4, cat: "reward", title: "人員配置体制加算の完全ガイド（83単位/日）", summary: "12:1以上の手厚い人員配置で83単位/日を算定。シフト工夫で達成可能なケースが多い。", source: "厚生労働省", date: "2025-10-01", imp: "med", advice: "常勤換算の計算方法とシフト例をまとめました。月間約25,000円/人の増収。", read: "5分" },
   { id: 5, cat: "reward", title: "処遇改善加算の一本化（最大14.7%）届出準備", summary: "旧3加算を一本化。キャリアパス要件・職場環境改善が必須。届出期限は2026年4月15日頃。", source: "厚生労働省", date: "2025-06-01", imp: "med", advice: "必要書類チェックリストと記入例を用意しました。早めの着手を。", read: "6分" },
   { id: 10, cat: "subsidy", title: "介護テクノロジー導入支援 — GH最大150万円", summary: "見守りセンサー・ICT機器の導入費を補助。タブレット・介護ソフト・インカム・AIカメラが対象。", source: "厚生労働省", date: "2026-02-01", imp: "high", advice: "都道府県の障害福祉課に要事前相談。見積書は2社以上。研修動画視聴が申請要件。", read: "4分", cs: { co: "NPO法人インクル（愛知県）", r: "タブレット+介護ソフト導入で記録時間を1日40分短縮。離職率15%低下。", amt: "95万円（補助率3/4）" } },
@@ -285,11 +285,11 @@ function ChatTab({userInfo}) {
         </Modal>
       )}
       {reportId && (
-        <Modal onClose={() => setReportId(null)}>
+        <Modal onClose={() => setReportId(null)}
           <h3 style={{ fontSize: 15, fontWeight: 800, color: C.t1, marginBottom: 14 }}>🚨 通報理由</h3>
           {["暴言・誹謗中傷", "営業・スパム", "個人情報", "無関係", "その他"].map(r => (
             <button key={r} className="tp" onClick={() => { setReported(p => ({ ...p, [reportId]: true })); setReportId(null); }} style={{ width: "100%", padding: 13, borderRadius: 12, border: `1px solid ${C.bd}`, background: "transparent", color: C.t1, fontSize: 13, cursor: "pointer", marginBottom: 6, textAlign: "left" }}>{r}</button>
-          ))}
+          ))
         </Modal>
       )}
 
@@ -492,7 +492,7 @@ function AuthScreen() {
             <button type="submit" disabled={loading} style={{width:'100%',padding:14,borderRadius:12,border:'none',background:loading?'#1f2535':accG,color:'#fff',fontSize:14,fontWeight:700,cursor:loading?'not-allowed':'pointer',marginTop:8,fontFamily:F,transition:'all .2s'}}>
               {loading?'処理中...':(mode==='login'?'ログイン':'アカウント作成')}
             </button>
-          {mode==='ログイン'&&<button type="button" onClick={async()=>{
+          {mode==='login'&&<button type="button" onClick={async()=>{
               if(!email){setError('メールアドレスを入力してください');return;}
               try{await sendPasswordResetEmail(auth,email);setError('リセットメールを送信しました');}
               catch(e){setError('メール送信に失敗しました');}

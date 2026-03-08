@@ -501,12 +501,16 @@ function AuthScreen() {
 
 export default function App() {
   const [authUser, setAuthUser] = React.useState(undefined);
+  const [tab, setTab] = useState("news");
+  const [splash, setSplash] = useState(true);
+  const mobile = useM();
   React.useEffect(() => {
     const {onAuthStateChanged} = require('firebase/auth');
     const {auth} = require('./firebase');
     const unsub = onAuthStateChanged(auth, u => setAuthUser(u !== null ? u : null));
     return unsub;
   }, []);
+  useEffect(() => { const t = setTimeout(() => setSplash(false), 1600); return () => clearTimeout(t); }, []);
   if (authUser === undefined) return (
     <div style={{minHeight:'100vh',background:'#0b0d11',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -514,10 +518,6 @@ export default function App() {
     </div>
   );
   if (!authUser) return <AuthScreen />;
-  const [tab, setTab] = useState("news");
-  const [splash, setSplash] = useState(true);
-  const mobile = useM();
-  useEffect(() => { const t = setTimeout(() => setSplash(false), 1600); return () => clearTimeout(t); }, []);
   const titles={news:"ドリプロ新聞",chat:"コミュニティ",events:"セミナー",profile:"マイページ"};
   const nav=[{id:"news",label:"新聞",Icon:INews,badge:NEWS.filter(n=>n.imp==="high").length},{id:"chat",label:"トーク",Icon:IChat,badge:2},{id:"events",label:"セミナー",Icon:ICal,badge:0},{id:"profile",label:"設定",Icon:IUser,badge:0}];
 

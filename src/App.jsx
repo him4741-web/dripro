@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { db, auth, addNews, addChat } from "./firebase";
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, getDoc, updateDoc, increment } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
@@ -407,7 +407,8 @@ function ProfileTab() {
           <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 0",borderBottom:i===0?`1px solid ${C.bd}`:"none"}}><div><div style={{fontSize:13,fontWeight:600,color:C.t1}}>{s.label}</div><div style={{fontSize:11,color:C.t3,marginTop:2}}>{s.desc}</div></div><Tg on={s.on} set={s.set} /></div>
         ))}
       </Card>
-      <Card><button className="tp" style={{width:"100%",padding:13,borderRadius:12,border:`1px solid ${C.red}25`,background:"transparent",color:C.red,fontSize:13,fontWeight:600,cursor:"pointer"}}>退会する</button></Card>
+      <Card style={{marginBottom:10}}><button className="tp" onClick={async()=>{const {signOut}=await import('firebase/auth');const {auth}=await import('./firebase');await signOut(auth);}} style={{width:"100%",padding:13,borderRadius:12,border:"none",background:"linear-gradient(135deg,#4f8ff7,#7c5cfc)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>ログアウト</button></Card>
+  <Card><button className="tp" style={{width:"100%",padding:13,borderRadius:12,border:`1px solid ${C.red}25`,background:"transparent",color:C.red,fontSize:13,fontWeight:600,cursor:"pointer"}}>退会する</button></Card>
     </div>
   );
 }
@@ -420,7 +421,99 @@ const IUser=()=><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stro
 const IBell=()=><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>;
 
 // MAIN
+
+// ===== AUTH SCREEN =====
+function AuthScreen() {
+  const [mode, setMode] = React.useState('login');
+  const [email, setEmail] = React.useState('');
+  const [pass, setPass] = React.useState('');
+  const [name, setName] = React.useState('');
+  const [company, setCompany] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const F = "'Outfit','Noto Sans JP',sans-serif";
+  const accG = 'linear-gradient(135deg,#4f8ff7,#7c5cfc)';
+  const inp = {width:'100%',padding:'13px 15px',borderRadius:11,border:'1.5px solid #1f2535',background:'#0f1218',color:'#eef2f7',fontSize:14,outline:'none',fontFamily:F,boxSizing:'border-box',marginBottom:10,display:'block'};
+  const handleSubmit = async (e) => {
+    e.preventDefault(); setLoading(true); setError('');
+    try {
+      if (mode === 'login') {
+        const {signInWithEmailAndPassword} = await import('firebase/auth');
+        const {auth} = await import('./firebase');
+        await signInWithEmailAndPassword(auth, email, pass);
+      } else {
+        const {createUserWithEmailAndPassword, updateProfile} = await import('firebase/auth');
+        const {auth, db} = await import('./firebase');
+        const {doc, setDoc, serverTimestamp} = await import('firebase/firestore');
+        const r = await createUserWithEmailAndPassword(auth, email, pass);
+        await updateProfile(r.user, {displayName: name});
+        await setDoc(doc(db, 'users', r.user.uid), {
+          uid:r.user.uid, name, company, email,
+          plan:'free', role:'member', status:'active', createdAt:serverTimestamp()
+        });
+      }
+    } catch(err) {
+      const M = {
+        'auth/user-not-found':'メールアドレスが登録されていません',
+        'auth/wrong-password':'パスワードが違います',
+        'auth/email-already-in-use':'このメールアドレスは登録済です',
+        'auth/weak-password':'パスワードは6文字以上にしてください',
+        'auth/invalid-email':'メールアドレスの形式が正しくありません',
+        'auth/invalid-credential':'メールアドレスまたはパスワードが違います',
+      };
+      setError(M[err.code] || 'エラーが発生しました');
+    } finally { setLoading(false); }
+  };
+  const BT = String.fromCharCode(96);
+  return (
+    <div style={{minHeight:'100vh',background:'radial-gradient(ellipse at 50% 30%,#111b33,#0b0d11)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,fontFamily:F}}>
+      <style>{BT + "@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700&display=swap');*{box-sizing:border-box;margin:0;padding:0}input::placeholder{color:#4a5568}input:focus{border-color:#4f8ff7!important}" + BT}</style>
+      <div style={{width:'100%',maxWidth:400}}>
+        <div style={{textAlign:'center',marginBottom:28}}>
+          <div style={{width:60,height:60,borderRadius:18,background:accG,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:28,marginBottom:10}}>📰</div>
+          <h1 style={{fontSize:24,fontWeight:900,color:'#eef2f7',margin:'0 0 4px'}}>ドリプロ</h1>
+          <p style={{fontSize:11,color:'#4a5568',letterSpacing:2}}>障害福祉GH特化ニュース</p>
+        </div>
+        <div style={{background:'#151921',borderRadius:20,padding:'24px 24px 20px',border:'1px solid #1f2535'}}>
+          <div style={{display:'flex',gap:3,marginBottom:20,background:'#0f1218',borderRadius:10,padding:3}}>
+            {[['login','ログイン'],['signup','新規登録']].map(([m,l])=>(
+              <button key={m} onClick={()=>{setMode(m);setError('');}} style={{flex:1,padding:'9px 0',borderRadius:7,border:'none',cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:F,background:mode===m?'#4f8ff7':'transparent',color:mode===m?'#fff':'#4a5568',transition:'all .2s'}}>{l}</button>
+            ))}
+          </div>
+          <form onSubmit={handleSubmit}>
+            {mode==='signup'&&<>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="お名前" required style={inp}/>
+              <input value={company} onChange={e=>setCompany(e.target.value)} placeholder="事業所・会社名" required style={inp}/>
+            </>}
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="メールアドレス" required style={inp}/>
+            <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="パスワード（6文字以上）" required style={{...inp,marginBottom:6}}/>
+            {error&&<p style={{color:'#f87171',fontSize:12,marginBottom:10}}>⚠ {error}</p>}
+            <button type="submit" disabled={loading} style={{width:'100%',padding:14,borderRadius:12,border:'none',background:loading?'#1f2535':accG,color:'#fff',fontSize:14,fontWeight:700,cursor:loading?'not-allowed':'pointer',marginTop:8,fontFamily:F,transition:'all .2s'}}>
+              {loading?'処理中...':(mode==='login'?'ログイン':'アカウント作成')}
+            </button>
+          </form>
+        </div>
+        <p style={{textAlign:'center',fontSize:11,color:'#4a5568',marginTop:16,lineHeight:1.7}}>登録することで利用規約・プライバシーポリシーに同意します</p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const [authUser, setAuthUser] = React.useState(undefined);
+  React.useEffect(() => {
+    const {onAuthStateChanged} = require('firebase/auth');
+    const {auth} = require('./firebase');
+    const unsub = onAuthStateChanged(auth, u => setAuthUser(u !== null ? u : null));
+    return unsub;
+  }, []);
+  if (authUser === undefined) return (
+    <div style={{minHeight:'100vh',background:'#0b0d11',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{width:36,height:36,border:'3px solid #1f2535',borderTop:'3px solid #4f8ff7',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>
+    </div>
+  );
+  if (!authUser) return <AuthScreen />;
   const [tab, setTab] = useState("news");
   const [splash, setSplash] = useState(true);
   const mobile = useM();

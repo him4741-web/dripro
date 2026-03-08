@@ -194,45 +194,167 @@ function NewsTab() {
 
 // CHAT
 function ChatTab() {
-  const [msgs, setMsgs] = useState(MSGS);
+  const [msgs, setMsgs] = useState(() =>
+    MSGS.map(m => ({ ...m, replyList: [] }))
+  );
   const [input, setInput] = useState("");
   const [liked, setLiked] = useState({});
   const [reported, setReported] = useState({});
   const [reportId, setReportId] = useState(null);
   const [warn, setWarn] = useState(null);
+  const [openReply, setOpenReply] = useState(null);
+  const [replyInput, setReplyInput] = useState({});
   const ref = useRef(null);
-  const send = () => { if (!input.trim()) return; if (NG.find(w=>input.includes(w))) { setWarn("ng"); return; } if (OT.some(w=>input.includes(w))) { setWarn("ot"); return; } doSend(); };
-  const doSend = () => { setMsgs(p=>[...p,{id:Date.now(),user:U.name,av:U.avatar,co:U.company,text:input,time:new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}),likes:0,replies:0}]); setInput(""); setWarn(null); setTimeout(()=>ref.current?.scrollIntoView({behavior:"smooth"}),100); };
-  const Modal = ({children,onClose}) => (<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",backdropFilter:"blur(8px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}><div style={{width:"100%",maxWidth:360,background:C.s,borderRadius:22,border:`1px solid ${C.bd}`,padding:24,animation:"scaleIn .2s ease"}} onClick={e=>e.stopPropagation()}>{children}</div></div>);
+
+  const checkText = (text, onOk) => {
+    if (NG.find(w => text.includes(w))) { setWarn({ type: "ng" }); return; }
+    if (OT.some(w => text.includes(w))) { setWarn({ type: "ot", onOk }); return; }
+    onOk();
+  };
+
+  const send = () => {
+    if (!input.trim()) return;
+    checkText(input, doSend);
+  };
+  const doSend = () => {
+    setMsgs(p => [...p, {
+      id: Date.now(), user: U.name, av: U.avatar, co: U.company,
+      text: input,
+      time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+      likes: 0, replies: 0, replyList: []
+    }]);
+    setInput("");
+    setWarn(null);
+    setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  };
+
+  const sendReply = (msgId) => {
+    const text = (replyInput[msgId] || "").trim();
+    if (!text) return;
+    checkText(text, () => doSendReply(msgId, text));
+  };
+  const doSendReply = (msgId, text) => {
+    setMsgs(p => p.map(m => m.id === msgId ? {
+      ...m,
+      replies: m.replies + 1,
+      replyList: [...(m.replyList || []), {
+        id: Date.now(), user: U.name, av: U.avatar, co: U.company,
+        text,
+        time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+      }]
+    } : m));
+    setReplyInput(p => ({ ...p, [msgId]: "" }));
+    setWarn(null);
+  };
+
+  const Modal = ({ children, onClose }) => (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div style={{ width: "100%", maxWidth: 360, background: C.s, borderRadius: 22, border: `1px solid ${C.bd}`, padding: 24, animation: "scaleIn .2s ease" }} onClick={e => e.stopPropagation()}>{children}</div>
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)" }}>
-      {warn && <Modal onClose={()=>setWarn(null)}><div style={{textAlign:"center"}}><div style={{fontSize:36,marginBottom:8}}>{warn==="ng"?"🚫":"💭"}</div><h3 style={{fontSize:16,fontWeight:800,color:warn==="ng"?C.red:C.org,marginBottom:6}}>{warn==="ng"?"投稿できません":"トピック確認"}</h3><p style={{fontSize:12,color:C.t2,lineHeight:1.6,marginBottom:16}}>{warn==="ng"?"ガイドラインに反する表現が含まれています。":"テーマに沿った投稿をお願いします。"}</p><div style={{display:"flex",gap:8}}><button className="tp" onClick={()=>setWarn(null)} style={{flex:1,padding:13,borderRadius:12,border:"none",background:C.acc,color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer"}}>修正する</button>{warn==="ot"&&<button className="tp" onClick={doSend} style={{flex:1,padding:13,borderRadius:12,border:`1px solid ${C.bd}`,background:"transparent",color:C.t3,fontSize:13,cursor:"pointer"}}>投稿</button>}</div></div></Modal>}
-      {reportId && <Modal onClose={()=>setReportId(null)}><h3 style={{fontSize:15,fontWeight:800,color:C.t1,marginBottom:14}}>🚨 通報理由</h3>{["暴言・誹謗中傷","営業・スパム","個人情報","無関係","その他"].map(r=><button key={r} className="tp" onClick={()=>{setReported(p=>({...p,[reportId]:true}));setReportId(null);}} style={{width:"100%",padding:13,borderRadius:12,border:`1px solid ${C.bd}`,background:"transparent",color:C.t1,fontSize:13,cursor:"pointer",marginBottom:6,textAlign:"left"}}>{r}</button>)}</Modal>}
-      <div style={{ flex: 1, overflow: "auto", paddingBottom: 8 }} className="sg">
-        {msgs.map(m => (
-          <div key={m.id} style={{ display: "flex", gap: 10, padding: "12px 0", opacity: reported[m.id]?0.2:1, borderBottom: `1px solid ${C.bd}08` }}>
-            <div style={{ width: 38, height: 38, borderRadius: 12, background: m.admin?`linear-gradient(135deg,${C.org},${C.red})`:C.accG, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{m.av}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: m.admin?C.org:C.t1 }}>{m.user}</span>
-                {m.admin && <Badge color={C.org}>運営</Badge>}
-                <span style={{ fontSize: 10, color: C.t3 }}>{m.co}</span>
-                <span style={{ fontSize: 10, color: C.t3, marginLeft: "auto" }}>{m.time}</span>
-              </div>
-              <p style={{ fontSize: 13, color: C.t2, lineHeight: 1.65, margin: 0 }}>{reported[m.id]?"通報済み（確認中）":m.text}</p>
-              <div style={{ display: "flex", gap: 16, marginTop: 7 }}>
-                <button onClick={()=>setLiked(p=>({...p,[m.id]:!p[m.id]}))} style={{background:"none",border:"none",fontSize:11,color:liked[m.id]?C.red:C.t3,cursor:"pointer",padding:0,display:"flex",alignItems:"center",gap:3}}>{liked[m.id]?"❤️":"🤍"} {m.likes+(liked[m.id]?1:0)}</button>
-                <span style={{fontSize:11,color:C.t3}}>💬 {m.replies}</span>
-                {!m.admin&&!reported[m.id]&&<button onClick={()=>setReportId(m.id)} style={{background:"none",border:"none",fontSize:10,color:C.t3,cursor:"pointer",marginLeft:"auto",opacity:0.3}}>🚨</button>}
-              </div>
+      {warn && (
+        <Modal onClose={() => setWarn(null)}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>{warn.type === "ng" ? "🚫" : "💭"}</div>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: warn.type === "ng" ? C.red : C.org, marginBottom: 6 }}>
+              {warn.type === "ng" ? "投稿できません" : "トピック確認"}
+            </h3>
+            <p style={{ fontSize: 12, color: C.t2, lineHeight: 1.6, marginBottom: 16 }}>
+              {warn.type === "ng" ? "ガイドラインに反する表現が含まれています。" : "テーマに沿った投稿をお願いします。"}
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="tp" onClick={() => setWarn(null)} style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: C.acc, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>修正する</button>
+              {warn.type === "ot" && <button className="tp" onClick={() => { warn.onOk(); }} style={{ flex: 1, padding: 13, borderRadius: 12, border: `1px solid ${C.bd}`, background: "transparent", color: C.t3, fontSize: 13, cursor: "pointer" }}>投稿</button>}
             </div>
           </div>
-        ))}
+        </Modal>
+      )}
+      {reportId && (
+        <Modal onClose={() => setReportId(null)}>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: C.t1, marginBottom: 14 }}>🚨 通報理由</h3>
+          {["暴言・誹謗中傷", "営業・スパム", "個人情報", "無関係", "その他"].map(r => (
+            <button key={r} className="tp" onClick={() => { setReported(p => ({ ...p, [reportId]: true })); setReportId(null); }} style={{ width: "100%", padding: 13, borderRadius: 12, border: `1px solid ${C.bd}`, background: "transparent", color: C.t1, fontSize: 13, cursor: "pointer", marginBottom: 6, textAlign: "left" }}>{r}</button>
+          ))}
+        </Modal>
+      )}
+
+      <div style={{ flex: 1, overflow: "auto", paddingBottom: 8 }} className="sg">
+        {msgs.map(m => {
+          const isOpen = openReply === m.id;
+          const totalReplies = m.replies + (m.replyList?.length || 0);
+          return (
+            <div key={m.id} style={{ padding: "12px 0", opacity: reported[m.id] ? 0.2 : 1, borderBottom: `1px solid ${C.bd}08` }}>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: m.admin ? `linear-gradient(135deg,${C.org},${C.red})` : C.accG, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{m.av}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: m.admin ? C.org : C.t1 }}>{m.user}</span>
+                    {m.admin && <Badge color={C.org}>運営</Badge>}
+                    <span style={{ fontSize: 10, color: C.t3 }}>{m.co}</span>
+                    <span style={{ fontSize: 10, color: C.t3, marginLeft: "auto" }}>{m.time}</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: C.t2, lineHeight: 1.65, margin: 0 }}>{reported[m.id] ? "通報済み（確認中）" : m.text}</p>
+                  <div style={{ display: "flex", gap: 16, marginTop: 7, alignItems: "center" }}>
+                    <button onClick={() => setLiked(p => ({ ...p, [m.id]: !p[m.id] }))} style={{ background: "none", border: "none", fontSize: 11, color: liked[m.id] ? C.red : C.t3, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3 }}>
+                      {liked[m.id] ? "❤️" : "🤍"} {m.likes + (liked[m.id] ? 1 : 0)}
+                    </button>
+                    <button
+                      onClick={() => setOpenReply(isOpen ? null : m.id)}
+                      style={{ background: "none", border: "none", fontSize: 11, color: isOpen ? C.acc : C.t3, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3, fontWeight: isOpen ? 700 : 400 }}
+                    >
+                      💬 {totalReplies}
+                    </button>
+                    {!m.admin && !reported[m.id] && (
+                      <button onClick={() => setReportId(m.id)} style={{ background: "none", border: "none", fontSize: 10, color: C.t3, cursor: "pointer", marginLeft: "auto", opacity: 0.3 }}>🚨</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {isOpen && (
+                <div style={{ marginLeft: 48, marginTop: 10, animation: "up .2s ease" }}>
+                  {(m.replyList || []).map(r => (
+                    <div key={r.id} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 9, background: C.accG, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{r.av}</div>
+                      <div style={{ flex: 1, background: C.card2, borderRadius: 12, padding: "8px 12px", border: `1px solid ${C.bd}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: C.t1 }}>{r.user}</span>
+                          <span style={{ fontSize: 10, color: C.t3 }}>{r.co}</span>
+                          <span style={{ fontSize: 10, color: C.t3, marginLeft: "auto" }}>{r.time}</span>
+                        </div>
+                        <p style={{ fontSize: 12, color: C.t2, lineHeight: 1.6, margin: 0 }}>{r.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 9, background: C.accG, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{U.avatar}</div>
+                    <input
+                      value={replyInput[m.id] || ""}
+                      onChange={e => setReplyInput(p => ({ ...p, [m.id]: e.target.value }))}
+                      onKeyDown={e => e.key === "Enter" && sendReply(m.id)}
+                      placeholder="返信を入力…"
+                      style={{ flex: 1, padding: "9px 14px", borderRadius: 12, border: `1px solid ${C.bd}`, background: C.card, color: C.t1, fontSize: 12, outline: "none" }}
+                    />
+                    <button
+                      className="tp"
+                      onClick={() => sendReply(m.id)}
+                      style={{ width: 34, height: 34, borderRadius: 11, border: "none", background: C.acc, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}
+                    >↑</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
         <div ref={ref} />
       </div>
+
       <div style={{ padding: "14px 0 0", borderTop: `1px solid ${C.bd}` }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="メッセージを入力…" style={{ flex: 1, padding: "14px 18px", borderRadius: 16, border: `1px solid ${C.bd}`, background: C.card, color: C.t1, fontSize: 13, outline: "none" }} />
+          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="メッセージを入力…" style={{ flex: 1, padding: "14px 18px", borderRadius: 16, border: `1px solid ${C.bd}`, background: C.card, color: C.t1, fontSize: 13, outline: "none" }} />
           <button className="tp" onClick={send} style={{ width: 46, height: 46, borderRadius: 16, border: "none", background: C.acc, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>↑</button>
         </div>
       </div>

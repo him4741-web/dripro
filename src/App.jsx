@@ -16,7 +16,7 @@ const NEWS = [
   { id: 5, cat: "reward", title: "処遇改善加算の一本化（最大14.7%）届出準備", summary: "旧3加算を一本化。キャリアパス要件・職場環境改善が必須。届出期限は2026年4月15日頃。", source: "厚生労働省", date: "2025-06-01", imp: "med", advice: "必要書類チェックリストと記入例を用意しました。早めの着手を。", read: "6分" },
   { id: 10, cat: "subsidy", title: "介護テクノロジー導入支援 — GH最大150万円", summary: "見守りセンサー・ICT機器の導入費を補助。タブレット・介護ソフト・インカム・AIカメラが対象。", source: "厚生労働省", date: "2026-02-01", imp: "high", advice: "都道府県の障害福祉課に要事前相談。見積書は2社以上。研修動画視聴が申請要件。", read: "4分", cs: { co: "NPO法人インクル（愛知県）", r: "タブレット+介護ソフト導入で記録時間を1日40分短縮。離職率15%低下。", amt: "95万円（補助率3/4）" } },
   { id: 11, cat: "subsidy", title: "デジタル化・AI導入補助金 2026（最大450万円）", summary: "介護記録ソフト・勤怠管理・請求システム等の導入費を補助。gBizIDプライム取得が前提。", source: "中小企業庁", date: "2026-01-07", imp: "high", advice: "IT導入支援事業者との連携が必要。SECURITY ACTION宣言も事前に済ませること。", read: "5分", cs: { co: "あきた創生マネジメント", r: "3ツール導入で事務作業を月30時間削減。", amt: "120万円（補助率1/2）" } },
-  { id: 13, cat: "subsidy", title: "人材確保・職場環境改善事業（5.4万円/人）", summary: "処遇改善加算算定事業所に職員1人あたり約5.4万円の一時金を補助。", source: "厚生労働省", date: "2025-07-01", imp: "high", advice: "業務の見える化・改善活動体制の構築も支給要件。都道府県の委託先事務局へ申請。", read: "3分" },
+  { id: 13, cat: "subsidy", title: "人材確保・職場環境改善事業（5.4万円/人）", summary: "処遇改善加算算定事業所に職員1人あたり約5.4万円の一時金を補助。", souce: "厚生労働省", date: "2025-07-01", imp: "high", advice: "業務の見える化・改善活動体制の構築も支給要件。都道府県の委託先事務局へ申請。", read: "3分" },
 ];
 
 const MSGS = [
@@ -285,7 +285,7 @@ function ChatTab({userInfo}) {
         </Modal>
       )}
       {reportId && (
-        <Modal onClose={() => setReportId(null)}
+        <Modal onClose={() => setReportId(null)}>
           <h3 style={{ fontSize: 15, fontWeight: 800, color: C.t1, marginBottom: 14 }}>🚨 通報理由</h3>
           {["暴言・誹謗中傷", "営業・スパム", "個人情報", "無関係", "その他"].map(r => (
             <button key={r} className="tp" onClick={() => { setReported(p => ({ ...p, [reportId]: true })); setReportId(null); }} style={{ width: "100%", padding: 13, borderRadius: 12, border: `1px solid ${C.bd}`, background: "transparent", color: C.t1, fontSize: 13, cursor: "pointer", marginBottom: 6, textAlign: "left" }}>{r}</button>

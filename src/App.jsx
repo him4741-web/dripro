@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { db, auth, addNews, addChat } from "./firebase";
+import { db, auth, addNews, addChat, getFCMToken } from "./firebase";
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, getDoc, getDocs, updateDoc, increment, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile } from "firebase/auth";
 
@@ -468,6 +468,53 @@ function EventsTab({applied={}, setApplied=()=>{}, authUser}) {
 }
 
 // PROFILE - QRコード（会員証）追加
+
+// FCMプッシュ通知許可コンポーネント
+function FcmPermissionButton({ userInfo }) {
+  const [status, setStatus] = useState('idle'); // idle | requesting | granted | denied | unsupported
+  useEffect(() => {
+    if (!('Notification' in window)) { setStatus('unsupported'); return; }
+    if (Notification.permission === 'granted') setStatus('granted');
+    else if (Notification.permission === 'denied') setStatus('denied');
+  }, []);
+  const requestPermission = async () => {
+    if (!('Notification' in window)) { setStatus('unsupported'); return; }
+    setStatus('requesting');
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        setStatus('granted');
+        // FCMトークンを取得してFirestoreに保存
+        const token = await getFCMToken();
+        if (token && userInfo?.uid) {
+          await updateDoc(doc(db, 'users', userInfo.uid), { fcmToken: token, pushPermission: 'granted' }).catch(() => {});
+        }
+      } else {
+        setStatus('denied');
+      }
+    } catch(e) {
+      setStatus('denied');
+    }
+  };
+  if (status === 'unsupported') return null;
+  if (status === 'granted') return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 0",borderTop:`1px solid ${C.bd}`}}>
+      <div>
+        <div style={{fontSize:13,fontWeight:600,color:C.grn}}>✅ プッシュ通知 許可済み</div>
+        <div style={{fontSize:11,color:C.t3,marginTop:2}}>緊急ニュースをリアルタイムでお届けします</div>
+      </div>
+    </div>
+  );
+  return (
+    <div style={{padding:"13px 0",borderTop:`1px solid ${C.bd}`}}>
+      <button className="tp" onClick={requestPermission} disabled={status==='requesting'}
+        style={{width:"100%",padding:"11px 0",borderRadius:11,border:`1px solid ${C.acc}50`,background:status==='requesting'?"transparent":C.accS,color:C.acc,fontSize:12,fontWeight:700,cursor:status==='requesting'?"not-allowed":"pointer"}}>
+        {status === 'requesting' ? '許可リクエスト中...' : status === 'denied' ? '🔕 通知がブロックされています（ブラウザ設定から変更）' : '🔔 プッシュ通知を有効にする'}
+      </button>
+    </div>
+  );
+}
+
 function ProfileTab({userInfo}) {
   const [eN, setEN] = useState(true);
   const [pN, setPN] = useState(true);
@@ -565,6 +612,8 @@ function ProfileTab({userInfo}) {
             <Tg on={s.on} set={s.set} fsKey={s.fsKey} />
           </div>
         ))}
+        {/* ⑭ FCMプッシュ通知許可ボタン */}
+        <FcmPermissionButton userInfo={userInfo} />
       </Card>
       <Card style={{marginBottom:10}}>
         <button className="tp" onClick={async () => { await signOut(auth); }} style={{width:"100%",padding:13,borderRadius:12,border:"none",background:"linear-gradient(135deg,#4f8ff7,#7c5cfc)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>ログアウト</button>

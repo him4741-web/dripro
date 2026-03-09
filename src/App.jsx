@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { db, auth, addNews, addChat } from "./firebase";
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, getDoc, getDocs, updateDoc, increment, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile } from "firebase/auth";
@@ -29,7 +30,8 @@ const EVTS_SEED = [
   { id: "ev2", title: "【人気】加算取得 完全攻略セミナー", type: "seminar", date: "4/10（木）", time: "14:00〜16:00", cap: 100, applicants: 55, tag: "無料" },
   { id: "ev3", title: "報酬改定 個別コンサルティング", type: "consul", date: "随時受付", time: "", cap: 5, applicants: 2, tag: "残3枠" },
 ];
-const DEADLINES = [
+// DEADLINESのデフォルト値（Firestoreが空の場合のフォールバック）
+const DEADLINES_DEFAULT = [
   { label: "報酬引き下げ開始", date: "2026-06-01", color: "#ef4444", icon: "🚨" },
   { label: "処遇改善届出期限", date: "2026-04-15", color: "#f59e0b", icon: "📋" },
   { label: "連携推進会議義務化", date: "2027-04-01", color: "#8b5cf6", icon: "⚖️" },
@@ -103,17 +105,61 @@ function BookingModal({ news, onClose }) {
   );
 }
 
-// NEWS TAB
-function NewsTab({news:NEWS_DATA=NEWS, userInfo}) {
+// NEWS TAB - DEADLINESをpropsで受け取り、いいねFirestore保存対応
+function NewsTab({news:NEWS_DATA=NEWS, userInfo, deadlines=DEADLINES_DEFAULT}) {
   const [exp, setExp] = useState(null);
   const [filter, setFilter] = useState("all");
   const [booking, setBooking] = useState(null);
+  // ⑨ いいね: Firestoreから読み込み + 保存
+  const [liked, setLiked] = useState({});
+  const [likeCounts, setLikeCounts] = useState({});
+  useEffect(() => {
+    if (!userInfo?.uid) return;
+    // ユーザーのいいね済み一覧を取得
+    const q = query(collection(db, "news_likes"), orderBy("likedAt", "desc"));
+    const unsub = onSnapshot(q, snap => {
+      const myLikes = {};
+      const counts = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        counts[data.newsId] = (counts[data.newsId] || 0) + 1;
+        if (data.uid === userInfo.uid) myLikes[data.newsId] = d.id;
+      });
+      setLiked(myLikes);
+      setLikeCounts(counts);
+    }, () => {});
+    return () => unsub();
+  }, [userInfo?.uid]);
+
+  const toggleLike = async (newsId) => {
+    if (!userInfo?.uid) return;
+    if (liked[newsId]) {
+      // いいね解除: ドキュメント削除
+      try {
+        await deleteDoc(doc(db, "news_likes", liked[newsId]));
+      } catch(e) {}
+    } else {
+      // いいね追加
+      try {
+        const likeDoc = await addDoc(collection(db, "news_likes"), {
+          uid: userInfo.uid,
+          newsId: String(newsId),
+          likedAt: serverTimestamp(),
+        });
+        // ローカル更新（onSnapshotが来るまでの即時反映）
+        setLiked(p => ({...p, [newsId]: likeDoc.id}));
+        setLikeCounts(p => ({...p, [newsId]: (p[newsId] || 0) + 1}));
+      } catch(e) {}
+    }
+  };
+
   const filtered = filter === "all" ? NEWS_DATA : NEWS_DATA.filter(n => n.cat === filter);
   return (
     <div className="sg">
       {booking && <BookingModal news={booking} onClose={() => setBooking(null)} />}
+      {/* Deadlines - Firestoreから取得したものを表示 */}
       <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4, marginBottom: 14 }}>
-        {DEADLINES.map((d, i) => {
+        {deadlines.map((d, i) => {
           const days = Math.max(0, Math.ceil((new Date(d.date)-new Date())/86400000));
           return (
             <div key={i} style={{ flex: "0 0 auto", minWidth: 140, background: C.card, borderRadius: 16, padding: "14px 16px", border: `1px solid ${C.bd}`, borderLeft: `3px solid ${d.color}` }}>
@@ -128,38 +174,48 @@ function NewsTab({news:NEWS_DATA=NEWS, userInfo}) {
           <Chip key={f.id} active={filter===f.id} onClick={() => setFilter(f.id)} color={f.id==="all"?C.acc:catC[f.id]}>{f.label}</Chip>
         )}
       </div>
-      {filtered.map(n => (
-        <Card key={n.id} onClick={() => setExp(exp===n.id?null:n.id)} glow={exp===n.id} style={{ marginBottom: 10 }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: `${catC[n.cat]}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0 }}>{catE[n.cat]}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginBottom: 5 }}>
-                <Badge color={catC[n.cat]}>{catL[n.cat]}</Badge>
-                {(n.imp||n.importance)==="high" && <Badge color={C.red} filled>重要</Badge>}
-                <span style={{ fontSize: 10, color: C.t3, marginLeft: "auto" }}>{n.read}</span>
+      {filtered.map(n => {
+        const isLiked = !!liked[n.id];
+        const likeCount = likeCounts[n.id] || 0;
+        return (
+          <Card key={n.id} onClick={() => setExp(exp===n.id?null:n.id)} glow={exp===n.id} style={{ marginBottom: 10 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: `${catC[n.cat]}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0 }}>{catE[n.cat]}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginBottom: 5 }}>
+                  <Badge color={catC[n.cat]}>{catL[n.cat]}</Badge>
+                  {(n.imp||n.importance)==="high" && <Badge color={C.red} filled>重要</Badge>}
+                  <span style={{ fontSize: 10, color: C.t3, marginLeft: "auto" }}>{n.read}</span>
+                </div>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: C.t1, lineHeight: 1.55, margin: 0 }}>{n.title}</h3>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                  <span style={{ fontSize: 11, color: C.t3 }}>{n.source} · {n.date}</span>
+                  {/* いいねボタン（カード一覧でも表示） */}
+                  <button onClick={e => { e.stopPropagation(); toggleLike(n.id); }} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: isLiked ? C.red : C.t3, padding: "2px 6px", borderRadius: 8 }}>
+                    {isLiked ? "❤️" : "🤍"} {likeCount > 0 ? likeCount : ""}
+                  </button>
+                </div>
               </div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: C.t1, lineHeight: 1.55, margin: 0 }}>{n.title}</h3>
-              <div style={{ fontSize: 11, color: C.t3, marginTop: 5 }}>{n.source} · {n.date}</div>
             </div>
-          </div>
-          {exp===n.id && (
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.bd}`, animation: "up .2s ease" }}>
-              <p style={{ fontSize: 13, color: C.t2, lineHeight: 1.75, marginBottom: 14 }}>{n.summary}</p>
-              <div style={{ padding: 14, borderRadius: 14, background: `${catC[n.cat]}08`, border: `1px solid ${catC[n.cat]}15`, marginBottom: 10 }}>
-                <div style={{ fontSize: 11, color: catC[n.cat], fontWeight: 700, marginBottom: 5 }}>💡 推奨アクション</div>
-                <p style={{ fontSize: 12, color: C.t1, lineHeight: 1.7, margin: 0 }}>{n.advice}</p>
+            {exp===n.id && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.bd}`, animation: "up .2s ease" }}>
+                <p style={{ fontSize: 13, color: C.t2, lineHeight: 1.75, marginBottom: 14 }}>{n.summary}</p>
+                <div style={{ padding: 14, borderRadius: 14, background: `${catC[n.cat]}08`, border: `1px solid ${catC[n.cat]}15`, marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: catC[n.cat], fontWeight: 700, marginBottom: 5 }}>💡 推奨アクション</div>
+                  <p style={{ fontSize: 12, color: C.t1, lineHeight: 1.7, margin: 0 }}>{n.advice}</p>
+                </div>
+                {n.cs && <div style={{ padding: 14, borderRadius: 14, background: C.orgS, border: `1px solid ${C.org}15`, marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: C.org, fontWeight: 700, marginBottom: 5 }}>📋 導入事例</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.org }}>{n.cs.co}</div>
+                  <p style={{ fontSize: 12, color: C.t2, margin: "4px 0", lineHeight: 1.65 }}>{n.cs.r}</p>
+                  <Badge color={C.grn}>💰 {n.cs.amt}</Badge>
+                </div>}
+                <button className="tp" onClick={e => { e.stopPropagation(); setBooking(n); }} style={{ width: "100%", padding: 14, borderRadius: 14, border: "none", background: C.accG, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>💬 この内容について無料相談する</button>
               </div>
-              {n.cs && <div style={{ padding: 14, borderRadius: 14, background: C.orgS, border: `1px solid ${C.org}15`, marginBottom: 10 }}>
-                <div style={{ fontSize: 11, color: C.org, fontWeight: 700, marginBottom: 5 }}>📋 導入事例</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.org }}>{n.cs.co}</div>
-                <p style={{ fontSize: 12, color: C.t2, margin: "4px 0", lineHeight: 1.65 }}>{n.cs.r}</p>
-                <Badge color={C.grn}>💰 {n.cs.amt}</Badge>
-              </div>}
-              <button className="tp" onClick={e => { e.stopPropagation(); setBooking(n); }} style={{ width: "100%", padding: 14, borderRadius: 14, border: "none", background: C.accG, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>💬 この内容について無料相談する</button>
-            </div>
-          )}
-        </Card>
-      ))}
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }
@@ -214,7 +270,6 @@ function ChatTab({userInfo}) {
     try {
       await addDoc(collection(db, "chats"), msgData);
     } catch(e) {
-      // Firestoreに書き込み失敗時はローカルに表示
       setMsgs(p => [...p, { ...msgData, id: Date.now(), createdAt: new Date() }]);
     }
     setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -235,9 +290,7 @@ function ChatTab({userInfo}) {
       text,
       time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
     };
-    // ローカル更新
     setMsgs(p => p.map(m => m.id === msgId ? { ...m, replies: m.replies + 1, replyList: [...(m.replyList || []), reply] } : m));
-    // FirestoreはリアルなドキュメントIDの場合のみ更新
     if (typeof msgId === "string") {
       try {
         const msgRef = doc(db, "chats", msgId);
@@ -253,8 +306,7 @@ function ChatTab({userInfo}) {
     setReportId(null);
     try {
       await addDoc(collection(db, "chat_reports"), {
-        msgId,
-        reason,
+        msgId, reason,
         reportedBy: userInfo?.uid || "anonymous",
         reportedAt: serverTimestamp(),
       });
@@ -271,12 +323,8 @@ function ChatTab({userInfo}) {
         <Modal onClose={() => setWarn(null)}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>{warn.type === "ng" ? "🚫" : "💭"}</div>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: warn.type === "ng" ? C.red : C.org, marginBottom: 6 }}>
-              {warn.type === "ng" ? "投稿できません" : "トピック確認"}
-            </h3>
-            <p style={{ fontSize: 12, color: C.t2, lineHeight: 1.6, marginBottom: 16 }}>
-              {warn.type === "ng" ? "ガイドラインに反する表現が含まれています。" : "テーマに沿った投稿をお願いします。"}
-            </p>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: warn.type === "ng" ? C.red : C.org, marginBottom: 6 }}>{warn.type === "ng" ? "投稿できません" : "トピック確認"}</h3>
+            <p style={{ fontSize: 12, color: C.t2, lineHeight: 1.6, marginBottom: 16 }}>{warn.type === "ng" ? "ガイドラインに反する表現が含まれています。" : "テーマに沿った投稿をお願いします。"}</p>
             <div style={{ display: "flex", gap: 8 }}>
               <button className="tp" onClick={() => setWarn(null)} style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: C.acc, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>修正する</button>
               {warn.type === "ot" && <button className="tp" onClick={() => { warn.onOk(); }} style={{ flex: 1, padding: 13, borderRadius: 12, border: `1px solid ${C.bd}`, background: "transparent", color: C.t3, fontSize: 13, cursor: "pointer" }}>投稿</button>}
@@ -357,7 +405,7 @@ function ChatTab({userInfo}) {
     </div>
   );
 }
-// EVENTS - Firestoreから取得 + applicantsカウント更新
+// EVENTS
 function EventsTab({applied={}, setApplied=()=>{}, authUser}) {
   const [evts, setEvts] = useState(EVTS_SEED);
   useEffect(() => {
@@ -402,12 +450,8 @@ function EventsTab({applied={}, setApplied=()=>{}, authUser}) {
               if (authUser) {
                 try {
                   await addDoc(collection(db, "seminar_entries"), {
-                    uid: authUser.uid,
-                    eventId: ev.id,
-                    eventTitle: ev.title,
-                    createdAt: serverTimestamp(),
+                    uid: authUser.uid, eventId: ev.id, eventTitle: ev.title, createdAt: serverTimestamp(),
                   });
-                  // applicantsカウント更新（Firestoreドキュメントの場合のみ）
                   if (typeof ev.id === "string" && ev.id.length > 5) {
                     await updateDoc(doc(db, "events", ev.id), { applicants: increment(1) });
                   }
@@ -423,11 +467,12 @@ function EventsTab({applied={}, setApplied=()=>{}, authUser}) {
   );
 }
 
-// PROFILE - 通知設定Firestore保存 + 退会ボタン + プラン動的表示
+// PROFILE - QRコード（会員証）追加
 function ProfileTab({userInfo}) {
   const [eN, setEN] = useState(true);
   const [pN, setPN] = useState(true);
   const [notifLoaded, setNotifLoaded] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   useEffect(() => {
     if (!userInfo?.uid || notifLoaded) return;
     getDoc(doc(db, "users", userInfo.uid)).then(d => {
@@ -441,23 +486,27 @@ function ProfileTab({userInfo}) {
   }, [userInfo]);
   const saveNotif = async (key, val) => {
     if (!userInfo?.uid) return;
-    try {
-      await updateDoc(doc(db, "users", userInfo.uid), { [key]: val });
-    } catch(e) {}
+    try { await updateDoc(doc(db, "users", userInfo.uid), { [key]: val }); } catch(e) {}
   };
   const Tg = ({on, set, fsKey}) => (
-    <button onClick={() => {
-      set(!on);
-      saveNotif(fsKey, !on);
-    }} className="tp" style={{width:50,height:30,borderRadius:15,border:"none",background:on?C.grn:C.bd,cursor:"pointer",position:"relative",transition:"background .2s"}}>
+    <button onClick={() => { set(!on); saveNotif(fsKey, !on); }} className="tp" style={{width:50,height:30,borderRadius:15,border:"none",background:on?C.grn:C.bd,cursor:"pointer",position:"relative",transition:"background .2s"}}>
       <div style={{width:24,height:24,borderRadius:12,background:"#fff",position:"absolute",top:3,left:on?23:3,transition:"left .2s",boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}} />
     </button>
   );
   const plan = userInfo?.plan || "free";
   const planLabel = plan === "pro" || plan === "Pro" ? "Pro" : "Free";
   const planColor = planLabel === "Pro" ? C.acc : C.t3;
+  // QRコードに埋め込むデータ（会員情報JSON）
+  const qrData = JSON.stringify({
+    uid: userInfo?.uid || "",
+    name: userInfo?.name || "",
+    company: userInfo?.company || "",
+    plan: planLabel,
+    app: "dripro.vercel.app",
+  });
   return (
     <div className="sg">
+      {/* プロフィールカード */}
       <Card style={{marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:14}}>
           <div style={{width:56,height:56,borderRadius:18,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:800}}>{userInfo?.avatar || "U"}</div>
@@ -468,6 +517,40 @@ function ProfileTab({userInfo}) {
           <Badge color={planColor} filled>{planLabel}</Badge>
         </div>
       </Card>
+
+      {/* ⑩ QRコード会員証 */}
+      <Card style={{marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom: showQR ? 16 : 0}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:C.t1}}>📱 会員証 QRコード</div>
+            <div style={{fontSize:11,color:C.t3,marginTop:2}}>セミナー受付・スタッフ確認用</div>
+          </div>
+          <button className="tp" onClick={() => setShowQR(!showQR)} style={{padding:"7px 14px",borderRadius:10,border:`1px solid ${C.bd}`,background:showQR?C.accS:"transparent",color:showQR?C.acc:C.t2,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            {showQR ? "閉じる" : "表示する"}
+          </button>
+        </div>
+        {showQR && (
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,animation:"up .2s ease"}}>
+            <div style={{padding:16,background:"#fff",borderRadius:16,display:"inline-block"}}>
+              <QRCodeSVG
+                value={qrData}
+                size={180}
+                bgColor="#ffffff"
+                fgColor="#0b0d11"
+                level="M"
+                includeMargin={false}
+              />
+            </div>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontSize:14,fontWeight:700,color:C.t1}}>{userInfo?.name || ""}</div>
+              <div style={{fontSize:11,color:C.t3}}>{userInfo?.company || ""}</div>
+              <div style={{marginTop:6}}><Badge color={planColor} filled>{planLabel} 会員</Badge></div>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* 通知設定 */}
       <Card style={{marginBottom:12}}>
         <div style={{fontSize:12,fontWeight:700,color:C.t3,marginBottom:14}}>🔔 通知設定</div>
         {[
@@ -492,11 +575,8 @@ function ProfileTab({userInfo}) {
             const uid = userInfo?.uid;
             if (uid) {
               updateDoc(doc(db, "users", uid), { status: "withdrawn", withdrawnAt: serverTimestamp() })
-                .then(() => signOut(auth))
-                .catch(() => signOut(auth));
-            } else {
-              signOut(auth);
-            }
+                .then(() => signOut(auth)).catch(() => signOut(auth));
+            } else { signOut(auth); }
           }
         }} style={{width:"100%",padding:13,borderRadius:12,border:`1px solid ${C.red}25`,background:"transparent",color:C.red,fontSize:13,fontWeight:600,cursor:"pointer"}}>退会する</button>
       </Card>
@@ -523,9 +603,7 @@ function AuthScreen() {
   const accG = 'linear-gradient(135deg,#4f8ff7,#7c5cfc)';
   const inp = {width:'100%',padding:'13px 15px',borderRadius:11,border:'1.5px solid #1f2535',background:'#0f1218',color:'#eef2f7',fontSize:14,outline:'none',fontFamily:F,boxSizing:'border-box',marginBottom:10,display:'block'};
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+    e.preventDefault(); setLoading(true); setError('');
     try {
       if (mode === 'login') {
         await signInWithEmailAndPassword(auth, email, pass);
@@ -546,9 +624,7 @@ function AuthScreen() {
         'auth/invalid-credential':'メールアドレスまたはパスワードが違います',
       };
       setError(M[err.code] || 'エラーが発生しました');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
   const BT = String.fromCharCode(96);
   return (
@@ -597,7 +673,25 @@ export default function App() {
   const [seminarApplied, setSeminarApplied] = useState({});
   const [tab, setTab] = useState("news");
   const [splash, setSplash] = useState(true);
+  // ⑪ DEADLINESをFirestoreから取得
+  const [deadlines, setDeadlines] = useState(DEADLINES_DEFAULT);
   const mobile = useM();
+
+  // ⑪ deadlines onSnapshot
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, "deadlines"), orderBy("date", "asc")),
+      snap => {
+        if (!snap.empty) {
+          setDeadlines(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+        }
+        // snap.empty の場合はデフォルト値をそのまま使用
+      },
+      () => {} // エラー時もデフォルト値のまま
+    );
+    return () => unsub();
+  }, []);
+
   React.useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => setAuthUser(u !== null ? u : null));
     return unsub;
@@ -621,6 +715,7 @@ export default function App() {
     return () => unsub2();
   }, [authUser]);
   useEffect(() => { const t = setTimeout(() => setSplash(false), 1600); return () => clearTimeout(t); }, []);
+
   if (authUser === undefined) return (
     <div style={{minHeight:'100vh',background:'#0b0d11',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -629,7 +724,6 @@ export default function App() {
   );
   if (!authUser) return <AuthScreen />;
   const titles={news:"ドリプロ新聞",chat:"コミュニティ",events:"セミナー",profile:"マイページ"};
-  // navバッジ: liveNewsの重要記事数を動的に
   const newsHighCount = (liveNews || NEWS).filter(n => (n.imp || n.importance) === "high").length;
   const nav=[
     {id:"news", label:"新聞", Icon:INews, badge:newsHighCount},
@@ -638,7 +732,12 @@ export default function App() {
     {id:"profile", label:"設定", Icon:IUser, badge:0}
   ];
   if (splash) return (<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`radial-gradient(ellipse at 50% 35%,#111b33 0%,${C.bg} 65%)`,fontFamily:F}}><style>{CSS}</style><div style={{width:68,height:68,borderRadius:20,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,animation:"glow 2s infinite",marginBottom:16}}>📰</div><div style={{fontSize:24,fontWeight:900,color:"#fff",animation:"up .4s ease .2s both"}}>ドリプロ</div><div style={{fontSize:11,color:C.t3,marginTop:5,animation:"up .4s ease .35s both",letterSpacing:2.5}}>障害福祉GH特化ニュース</div></div>);
-  const Content=()=>({news:<NewsTab news={liveNews||[]} userInfo={userInfo}/>,chat:<ChatTab userInfo={userInfo}/>,events:<EventsTab applied={seminarApplied} setApplied={setSeminarApplied} authUser={authUser}/>,profile:<ProfileTab userInfo={userInfo}/>})[tab]||<NewsTab news={liveNews||[]} userInfo={userInfo}/>;
+  const Content=()=>({
+    news:<NewsTab news={liveNews||[]} userInfo={userInfo} deadlines={deadlines}/>,
+    chat:<ChatTab userInfo={userInfo}/>,
+    events:<EventsTab applied={seminarApplied} setApplied={setSeminarApplied} authUser={authUser}/>,
+    profile:<ProfileTab userInfo={userInfo}/>
+  })[tab]||<NewsTab news={liveNews||[]} userInfo={userInfo} deadlines={deadlines}/>;
   if (!mobile) return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,display:"flex"}}><style>{CSS}</style>
       <aside style={{width:230,minHeight:"100vh",background:C.s,borderRight:`1px solid ${C.bd}`,position:"fixed",left:0,top:0,bottom:0,display:"flex",flexDirection:"column",zIndex:40}}>

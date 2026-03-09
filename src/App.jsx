@@ -289,7 +289,7 @@ function ChatTab({userInfo}) {
           <h3 style={{ fontSize: 15, fontWeight: 800, color: C.t1, marginBottom: 14 }}>🚨 通報理由</h3>
           {["暴言・誹謗中傷", "営業・スパム", "個人情報", "無関係", "その他"].map(r => (
             <button key={r} className="tp" onClick={() => { setReported(p => ({ ...p, [reportId]: true })); setReportId(null); }} style={{ width: "100%", padding: 13, borderRadius: 12, border: `1px solid ${C.bd}`, background: "transparent", color: C.t1, fontSize: 13, cursor: "pointer", marginBottom: 6, textAlign: "left" }}>{r}</button>
-          ))
+          ))}
         </Modal>
       )}
 

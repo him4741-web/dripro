@@ -166,7 +166,7 @@ function NewsTab({news:NEWS_DATA=NEWS, userInfo}) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginBottom: 5 }}>
                 <Badge color={catC[n.cat]}>{catL[n.cat]}</Badge>
-                {n.imp==="high" && <Badge color={C.red} filled>重要</Badge>}
+                {(n.imp||n.importance)==="high" && <Badge color={C.red} filled>重要</Badge>}
                 <span style={{ fontSize: 10, color: C.t3, marginLeft: "auto" }}>{n.read}</span>
               </div>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: C.t1, lineHeight: 1.55, margin: 0 }}>{n.title}</h3>
@@ -508,7 +508,7 @@ function AuthScreen() {
 export default function App() {
   const [authUser, setAuthUser] = React.useState(undefined);
   const [userInfo, setUserInfo] = useState(null);
-  const [liveNews, setLiveNews] = useState([]);
+  const [liveNews, setLiveNews] = useState(null);
   const [seminarApplied, setSeminarApplied] = useState({});
   const [tab, setTab] = useState("news");
   const [splash, setSplash] = useState(true);
@@ -526,7 +526,7 @@ export default function App() {
       setUserInfo({ name, company: data.company || '', avatar: name.charAt(0), plan: data.plan || 'free', uid: authUser.uid, email: authUser.email });
     });
     const q = query(collection(db, 'news'), orderBy('createdAt', 'desc'));
-    const unsub2 = onSnapshot(q, snap => { if (!snap.empty) setLiveNews(snap.docs.map(d => ({id:d.id,...d.data()}))); }, ()=>{});
+    const unsub2 = onSnapshot(q, snap => { setLiveNews(snap.docs.map(d => ({id:d.id,...d.data()}))); }, ()=>{});
     getDocs(collection(db, 'seminar_entries')).then(snap => {
       const applied = {};
       snap.docs.forEach(d => { if (d.data().uid === authUser.uid) applied[d.data().eventId] = true; });
@@ -547,7 +547,7 @@ export default function App() {
 
   if (splash) return (<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`radial-gradient(ellipse at 50% 35%,#111b33 0%,${C.bg} 65%)`,fontFamily:F}}><style>{CSS}</style><div style={{width:68,height:68,borderRadius:20,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,animation:"glow 2s infinite",marginBottom:16}}>📰</div><div style={{fontSize:24,fontWeight:900,color:"#fff",animation:"up .4s ease .2s both"}}>ドリプロ</div><div style={{fontSize:11,color:C.t3,marginTop:5,animation:"up .4s ease .35s both",letterSpacing:2.5}}>障害福祉GH特化ニュース</div></div>);
 
-  const Content=()=>({news:<NewsTab news={liveNews.length>0?liveNews:NEWS} userInfo={userInfo}/>,chat:<ChatTab userInfo={userInfo}/>,events:<EventsTab applied={seminarApplied} setApplied={setSeminarApplied} authUser={authUser}/>,profile:<ProfileTab userInfo={userInfo}/>})[tab]||<NewsTab news={liveNews.length>0?liveNews:NEWS} userInfo={userInfo}/>;
+  const Content=()=>({news:<NewsTab news={liveNews||[]} userInfo={userInfo}/>,chat:<ChatTab userInfo={userInfo}/>,events:<EventsTab applied={seminarApplied} setApplied={setSeminarApplied} authUser={authUser}/>,profile:<ProfileTab userInfo={userInfo}/>})[tab]||<NewsTab news={liveNews||[]} userInfo={userInfo}/>;
 
   if (!mobile) return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,display:"flex"}}><style>{CSS}</style>

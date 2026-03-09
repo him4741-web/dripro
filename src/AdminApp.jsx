@@ -913,6 +913,164 @@ function QrTab() {
 // ============================================================
 // SETTINGS TAB (新規追加)
 // ============================================================
+function DeadlinesTab() {
+  const C2 = { bg: "#0b0d11", card: "#151921", bd: "#1f2535", bdL: "#2a3148", acc: "#4f8ff7", accG: "linear-gradient(135deg,#4f8ff7,#7c5cfc)", grn: "#34d399", grnS: "rgba(52,211,153,0.10)", org: "#fbbf24", red: "#f87171", pur: "#a78bfa", t1: "#eef2f7", t2: "#8893a7", t3: "#4a5568" };
+  const [deadlines, setDeadlines] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ label: "", date: "", color: "#ef4444", icon: "🚨" });
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, "deadlines"), orderBy("date", "asc")),
+      snap => {
+        setDeadlines(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+        setLoading(false);
+      },
+      () => setLoading(false)
+    );
+    return () => unsub();
+  }, []);
+
+  const ICON_OPTIONS = ["🚨","📋","⚖️","💰","🏦","📅","⚠️","🔔","📢","✅"];
+  const COLOR_OPTIONS = [
+    { color: "#ef4444", label: "赤" },
+    { color: "#f59e0b", label: "黄" },
+    { color: "#8b5cf6", label: "紫" },
+    { color: "#34d399", label: "緑" },
+    { color: "#4f8ff7", label: "青" },
+    { color: "#f87171", label: "薄赤" },
+  ];
+
+  const handleSave = async () => {
+    if (!form.label || !form.date) return;
+    setSaving(true);
+    try {
+      if (editing) {
+        await updateDoc(doc(db, "deadlines", editing), {
+          label: form.label, date: form.date, color: form.color, icon: form.icon,
+        });
+      } else {
+        await addDoc(collection(db, "deadlines"), {
+          label: form.label, date: form.date, color: form.color, icon: form.icon,
+          createdAt: serverTimestamp(),
+        });
+      }
+      setForm({ label: "", date: "", color: "#ef4444", icon: "🚨" });
+      setEditing(null);
+    } catch(e) {}
+    setSaving(false);
+  };
+
+  const handleEdit = (d) => {
+    setEditing(d.id);
+    setForm({ label: d.label, date: d.date, color: d.color, icon: d.icon });
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("この期限を削除しますか？")) return;
+    await deleteDoc(doc(db, "deadlines", id)).catch(() => {});
+  };
+
+  const handleCancel = () => {
+    setEditing(null);
+    setForm({ label: "", date: "", color: "#ef4444", icon: "🚨" });
+  };
+
+  const inp = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C2.bd}`, background: "#0f1218", color: C2.t1, fontSize: 13, outline: "none", marginBottom: 8, boxSizing: "border-box" };
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: C2.t1, marginBottom: 20 }}>⏰ 期限カウントダウン管理</h2>
+      <p style={{ fontSize: 12, color: C2.t3, marginBottom: 20 }}>ユーザー画面のニュースタブに表示されるカウントダウンを管理します。</p>
+
+      {/* 登録フォーム */}
+      <div style={{ background: C2.card, borderRadius: 16, padding: 20, border: `1px solid ${C2.bd}`, marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C2.t1, marginBottom: 14 }}>
+          {editing ? "✏️ 編集中" : "➕ 新規追加"}
+        </div>
+        <input
+          value={form.label}
+          onChange={e => setForm(p => ({...p, label: e.target.value}))}
+          placeholder="期限ラベル（例：処遇改善届出期限）"
+          style={inp}
+        />
+        <input
+          type="date"
+          value={form.date}
+          onChange={e => setForm(p => ({...p, date: e.target.value}))}
+          style={{...inp, colorScheme: "dark"}}
+        />
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: C2.t3, marginBottom: 6 }}>アイコン</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {ICON_OPTIONS.map(ic => (
+              <button key={ic} onClick={() => setForm(p => ({...p, icon: ic}))}
+                style={{ width: 36, height: 36, borderRadius: 9, border: `2px solid ${form.icon===ic?C2.acc:C2.bd}`, background: form.icon===ic?"rgba(79,143,247,0.15)":"transparent", fontSize: 18, cursor: "pointer" }}>
+                {ic}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: C2.t3, marginBottom: 6 }}>カラー</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {COLOR_OPTIONS.map(opt => (
+              <button key={opt.color} onClick={() => setForm(p => ({...p, color: opt.color}))}
+                style={{ width: 32, height: 32, borderRadius: 8, border: `3px solid ${form.color===opt.color?"#fff":"transparent"}`, background: opt.color, cursor: "pointer" }}
+                title={opt.label} />
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={handleSave} disabled={saving || !form.label || !form.date}
+            style={{ flex: 1, padding: "11px 0", borderRadius: 11, border: "none", background: saving?"#1f2535":C2.accG, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            {saving ? "保存中..." : (editing ? "更新する" : "追加する")}
+          </button>
+          {editing && (
+            <button onClick={handleCancel}
+              style={{ padding: "11px 18px", borderRadius: 11, border: `1px solid ${C2.bd}`, background: "transparent", color: C2.t3, fontSize: 13, cursor: "pointer" }}>
+              キャンセル
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 登録済み一覧 */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: C2.t3, marginBottom: 12 }}>
+        登録済み（{deadlines.length}件）
+      </div>
+      {loading ? (
+        <div style={{ textAlign: "center", color: C2.t3, padding: 20 }}>読み込み中...</div>
+      ) : deadlines.length === 0 ? (
+        <div style={{ textAlign: "center", color: C2.t3, padding: 20, background: C2.card, borderRadius: 12, border: `1px solid ${C2.bd}` }}>
+          まだ登録されていません
+        </div>
+      ) : (
+        deadlines.map(d => {
+          const days = Math.max(0, Math.ceil((new Date(d.date) - new Date()) / 86400000));
+          return (
+            <div key={d.id} style={{ background: C2.card, borderRadius: 14, padding: "14px 16px", border: `1px solid ${C2.bd}`, borderLeft: `3px solid ${d.color}`, marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 22 }}>{d.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C2.t1 }}>{d.label}</div>
+                <div style={{ fontSize: 11, color: C2.t3, marginTop: 2 }}>{d.date} ・ あと <span style={{ color: d.color, fontWeight: 700 }}>{days}日</span></div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => handleEdit(d)}
+                  style={{ padding: "7px 12px", borderRadius: 9, border: `1px solid ${C2.bd}`, background: "transparent", color: C2.t2, fontSize: 11, cursor: "pointer" }}>編集</button>
+                <button onClick={() => handleDelete(d.id)}
+                  style={{ padding: "7px 12px", borderRadius: 9, border: `1px solid ${C2.red}40`, background: "transparent", color: C2.red, fontSize: 11, cursor: "pointer" }}>削除</button>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 function SettingsTab({ authUser, adminInfo }) {
   const [saved, setSaved] = useState(false);
   const [displayName, setDisplayName] = useState(adminInfo?.name || "");
@@ -982,6 +1140,7 @@ const SIDEBAR_ITEMS = [
   { id: "reports", icon: "🚨", label: "チャット通報" },
   { id: "notify", icon: "🔔", label: "通知配信" },
   { id: "qr", icon: "📱", label: "QRコード発行" },
+  { id: "deadlines", icon: "⏰", label: "期限管理" },
   { id: "settings", icon: "⚙️", label: "設定" },
 ];
 
@@ -1049,6 +1208,7 @@ export default function AdminPanel() {
       case "reports": return <ChatReportsTab chatReports={chatReports} />;
       case "notify": return <NotifyTab members={members} news={news} />;
       case "qr": return <QrTab />;
+      case "deadlines": return <DeadlinesTab />;
       case "settings": return <SettingsTab authUser={authUser} adminInfo={adminInfo} />;
       default: return <DashboardTab members={members} news={news} seminarEntries={seminarEntries} chatReports={chatReports} />;
     }

@@ -4,10 +4,9 @@ import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, s
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile } from "firebase/auth";
 
 // ============================================================
-//  DATA
+// DATA
 // ============================================================
 const U = { name: "田中太郎", company: "〇〇福祉会", avatar: "田", plan: "Pro" };
-
 const NEWS = [
   { id: 1, cat: "law", title: "GH「総量規制」導入 — 厚労省が正式提案", summary: "社会保障審議会障害者部会にてGH新規指定を自治体判断で制限できる「総量規制」を提案。既存事業所の競争環境が大きく変わる可能性。", source: "厚生労働省", date: "2025-12-08", imp: "high", advice: "既存事業所にはプラス材料。「重度対応」への体制強化で例外枠を確保する戦略が有効。", read: "3分" },
   { id: 2, cat: "reward", title: "【速報】2026年6月〜 新規GHの基本報酬引き下げ", summary: "令和6年度報酬改定により新規指定GHの基本報酬引き下げ。既存事業所は対象外だが影響は広範囲。", source: "厚生労働省", date: "2025-12-16", imp: "high", advice: "新規参入検討中なら「2026年5月末までに指定取得」が最優先アクション。", read: "4分" },
@@ -18,51 +17,32 @@ const NEWS = [
   { id: 11, cat: "subsidy", title: "デジタル化・AI導入補助金 2026（最大450万円）", summary: "介護記録ソフト・勤怠管理・請求システム等の導入費を補助。gBizIDプライム取得が前提。", source: "中小企業庁", date: "2026-01-07", imp: "high", advice: "IT導入支援事業者との連携が必要。SECURITY ACTION宣言も事前に済ませること。", read: "5分", cs: { co: "あきた創生マネジメント", r: "3ツール導入で事務作業を月30時間削減。", amt: "120万円（補助率1/2）" } },
   { id: 13, cat: "subsidy", title: "人材確保・職場環境改善事業（5.4万円/人）", summary: "処遇改善加算算定事業所に職員1人あたり約5.4万円の一時金を補助。", souce: "厚生労働省", date: "2025-07-01", imp: "high", advice: "業務の見える化・改善活動体制の構築も支給要件。都道府県の委託先事務局へ申請。", read: "3分" },
 ];
-
-const MSGS = [
+const MSGS_SEED = [
   { id: 1, user: "佐藤花子", av: "佐", co: "△△ケア", text: "処遇改善加算の届出、皆さんもう準備始めてますか？", time: "08:32", likes: 3, replies: 2 },
   { id: 2, user: "鈴木一郎", av: "鈴", co: "□□介護", text: "キャリアパス要件の資料を揃え始めました。常勤換算の計算が毎回悩みます…", time: "08:45", likes: 5, replies: 1 },
   { id: 3, user: "ドリプロ", av: "D", co: "運営", text: "処遇改善加算の届出期限について詳しくまとめました。新聞タブからチェックしてください！", time: "09:01", likes: 8, replies: 0, admin: true },
   { id: 4, user: "山本次郎", av: "山", co: "◇◇福祉", text: "連携推進会議、民生委員さんに声かけしたら快く引き受けてくれた。意外とハードル低い。", time: "09:15", likes: 12, replies: 4 },
   { id: 5, user: "高橋美咲", av: "高", co: "☆☆GH", text: "重度対応シフトに切り替えて月の収益18%アップ！ドリプロの記事がきっかけです", time: "昨日", likes: 21, replies: 6 },
 ];
-
-const EVTS = [
-  { id: 1, title: "加算取得の実務と常勤換算のコツ", type: "study", date: "3/20（金）", time: "14:00〜15:30", cap: 30, applied: 18, tag: "会員無料" },
-  { id: 2, title: "【人気】加算取得 完全攻略セミナー", type: "seminar", date: "4/10（木）", time: "14:00〜16:00", cap: 100, applied: 55, tag: "無料" },
-  { id: 3, title: "報酬改定 個別コンサルティング", type: "consul", date: "随時受付", time: "", cap: 5, applied: 2, tag: "残3枠" },
+const EVTS_SEED = [
+  { id: "ev1", title: "加算取得の実務と常勤換算のコツ", type: "study", date: "3/20（金）", time: "14:00〜15:30", cap: 30, applicants: 18, tag: "会員無料" },
+  { id: "ev2", title: "【人気】加算取得 完全攻略セミナー", type: "seminar", date: "4/10（木）", time: "14:00〜16:00", cap: 100, applicants: 55, tag: "無料" },
+  { id: "ev3", title: "報酬改定 個別コンサルティング", type: "consul", date: "随時受付", time: "", cap: 5, applicants: 2, tag: "残3枠" },
 ];
-
 const DEADLINES = [
   { label: "報酬引き下げ開始", date: "2026-06-01", color: "#ef4444", icon: "🚨" },
   { label: "処遇改善届出期限", date: "2026-04-15", color: "#f59e0b", icon: "📋" },
   { label: "連携推進会議義務化", date: "2027-04-01", color: "#8b5cf6", icon: "⚖️" },
 ];
-
 const NG = ["バカ","ばか","アホ","あほ","死ね","しね","クソ","くそ","うざい","きもい","消えろ"];
 const OT = ["ランチ","ラーメン","天気","サッカー","野球","映画","ゲーム"];
 
 // THEME
-const C = {
-  bg: "#0b0d11", s: "#0f1218", card: "#151921", card2: "#1a1f2b",
-  bd: "#1f2535", bdL: "#2a3148",
-  acc: "#4f8ff7", accS: "rgba(79,143,247,0.10)", accG: "linear-gradient(135deg,#4f8ff7,#7c5cfc)",
-  grn: "#34d399", grnS: "rgba(52,211,153,0.10)",
-  org: "#fbbf24", orgS: "rgba(251,191,36,0.10)",
-  red: "#f87171", redS: "rgba(248,113,113,0.10)",
-  pur: "#a78bfa", purS: "rgba(167,139,250,0.10)",
-  t1: "#eef2f7", t2: "#8893a7", t3: "#4a5568",
-};
+const C = { bg: "#0b0d11", s: "#0f1218", card: "#151921", card2: "#1a1f2b", bd: "#1f2535", bdL: "#2a3148", acc: "#4f8ff7", accS: "rgba(79,143,247,0.10)", accG: "linear-gradient(135deg,#4f8ff7,#7c5cfc)", grn: "#34d399", grnS: "rgba(52,211,153,0.10)", org: "#fbbf24", orgS: "rgba(251,191,36,0.10)", red: "#f87171", redS: "rgba(248,113,113,0.10)", pur: "#a78bfa", purS: "rgba(167,139,250,0.10)", t1: "#eef2f7", t2: "#8893a7", t3: "#4a5568", };
 const catC = { law: C.acc, reward: C.grn, subsidy: C.pur };
 const catL = { law: "法改正", reward: "報酬加算", subsidy: "補助金" };
 const catE = { law: "⚖️", reward: "💰", subsidy: "🏦" };
-
-function useM() {
-  const [m, s] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : true);
-  useEffect(() => { const h = () => s(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
-  return m;
-}
-
+function useM() { const [m, s] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : true); useEffect(() => { const h = () => s(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []); return m; }
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -83,20 +63,9 @@ input,textarea{font-family:'Outfit','Noto Sans JP',sans-serif}
 `;
 const F = "'Outfit','Noto Sans JP',sans-serif";
 const FM = "'JetBrains Mono',monospace";
-
-const Badge = ({ children, color = C.acc, filled }) => (
-  <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 9px", borderRadius: 8, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: filled ? "#fff" : color, background: filled ? color : `${color}15`, lineHeight: 1.3 }}>{children}</span>
-);
-const Card = ({ children, onClick, glow, pad = 18, style: s }) => (
-  <div onClick={onClick} className={`hv ${onClick ? "tp" : ""}`} style={{ background: C.card, borderRadius: 18, padding: pad, border: `1px solid ${glow ? `${C.acc}35` : C.bd}`, position: "relative", overflow: "hidden", ...s }}>
-    {glow && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: C.accG }} />}
-    {children}
-  </div>
-);
-const Chip = ({ children, active, onClick, color = C.acc }) => (
-  <button onClick={onClick} className="tp" style={{ padding: "8px 16px", borderRadius: 24, border: `1.5px solid ${active ? color : C.bd}`, background: active ? `${color}12` : "transparent", color: active ? color : C.t2, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>{children}</button>
-);
-
+const Badge = ({ children, color = C.acc, filled }) => ( <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 9px", borderRadius: 8, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: filled ? "#fff" : color, background: filled ? color : `${color}15`, lineHeight: 1.3 }}>{children}</span> );
+const Card = ({ children, onClick, glow, pad = 18, style: s }) => ( <div onClick={onClick} className={`hv ${onClick ? "tp" : ""}`} style={{ background: C.card, borderRadius: 18, padding: pad, border: `1px solid ${glow ? `${C.acc}35` : C.bd}`, position: "relative", overflow: "hidden", ...s }}> {glow && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: C.accG }} />} {children} </div> );
+const Chip = ({ children, active, onClick, color = C.acc }) => ( <button onClick={onClick} className="tp" style={{ padding: "8px 16px", borderRadius: 24, border: `1.5px solid ${active ? color : C.bd}`, background: active ? `${color}12` : "transparent", color: active ? color : C.t2, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>{children}</button> );
 // BOOKING
 function BookingModal({ news, onClose }) {
   const [type, setType] = useState(news ? news.cat : "general");
@@ -143,22 +112,22 @@ function NewsTab({news:NEWS_DATA=NEWS, userInfo}) {
   return (
     <div className="sg">
       {booking && <BookingModal news={booking} onClose={() => setBooking(null)} />}
-      {/* Deadlines */}
       <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4, marginBottom: 14 }}>
-        {DEADLINES.map((d, i) => { const days = Math.max(0, Math.ceil((new Date(d.date)-new Date())/86400000)); return (
-          <div key={i} style={{ flex: "0 0 auto", minWidth: 140, background: C.card, borderRadius: 16, padding: "14px 16px", border: `1px solid ${C.bd}`, borderLeft: `3px solid ${d.color}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}><span style={{ fontSize: 14 }}>{d.icon}</span><span style={{ fontSize: 10, color: C.t3, fontWeight: 600 }}>{d.label}</span></div>
-            <span style={{ fontSize: 32, fontWeight: 900, color: d.color, fontFamily: FM, lineHeight: 1 }}>{days}</span><span style={{ fontSize: 11, color: C.t3, marginLeft: 2 }}>日</span>
-          </div>
-        ); })}
+        {DEADLINES.map((d, i) => {
+          const days = Math.max(0, Math.ceil((new Date(d.date)-new Date())/86400000));
+          return (
+            <div key={i} style={{ flex: "0 0 auto", minWidth: 140, background: C.card, borderRadius: 16, padding: "14px 16px", border: `1px solid ${C.bd}`, borderLeft: `3px solid ${d.color}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}><span style={{ fontSize: 14 }}>{d.icon}</span><span style={{ fontSize: 10, color: C.t3, fontWeight: 600 }}>{d.label}</span></div>
+              <span style={{ fontSize: 32, fontWeight: 900, color: d.color, fontFamily: FM, lineHeight: 1 }}>{days}</span><span style={{ fontSize: 11, color: C.t3, marginLeft: 2 }}>日</span>
+            </div>
+          );
+        })}
       </div>
-      {/* Filter */}
       <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto", paddingBottom: 2 }}>
         {[{id:"all",label:"すべて"},{id:"subsidy",label:"🏦 補助金"},{id:"law",label:"⚖️ 法改正"},{id:"reward",label:"💰 報酬加算"}].map(f =>
           <Chip key={f.id} active={filter===f.id} onClick={() => setFilter(f.id)} color={f.id==="all"?C.acc:catC[f.id]}>{f.label}</Chip>
         )}
       </div>
-      {/* News */}
       {filtered.map(n => (
         <Card key={n.id} onClick={() => setExp(exp===n.id?null:n.id)} glow={exp===n.id} style={{ marginBottom: 10 }}>
           <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -194,19 +163,22 @@ function NewsTab({news:NEWS_DATA=NEWS, userInfo}) {
     </div>
   );
 }
-
-// CHAT
+// CHAT - Firestoreに保存 + 通報Firestore保存
 function ChatTab({userInfo}) {
-  const [msgs, setMsgs] = useState(() =>
-    MSGS.map(m => ({ ...m, replyList: [] }))
-  );
+  const [msgs, setMsgs] = useState([]);
+  const [fsLoaded, setFsLoaded] = useState(false);
   useEffect(() => {
     const q = query(collection(db, "chats"), orderBy("createdAt", "asc"));
     const unsub = onSnapshot(q, (snap) => {
       if (!snap.empty) {
         setMsgs(snap.docs.map(d => ({ ...d.data(), id: d.id, replyList: d.data().replyList || [] })));
+        setFsLoaded(true);
+      } else if (!fsLoaded) {
+        setMsgs(MSGS_SEED.map(m => ({ ...m, replyList: [] })));
       }
-    }, () => {});
+    }, () => {
+      setMsgs(MSGS_SEED.map(m => ({ ...m, replyList: [] })));
+    });
     return () => unsub();
   }, []);
   const [input, setInput] = useState("");
@@ -217,54 +189,82 @@ function ChatTab({userInfo}) {
   const [openReply, setOpenReply] = useState(null);
   const [replyInput, setReplyInput] = useState({});
   const ref = useRef(null);
-
   const checkText = (text, onOk) => {
     if (NG.find(w => text.includes(w))) { setWarn({ type: "ng" }); return; }
     if (OT.some(w => text.includes(w))) { setWarn({ type: "ot", onOk }); return; }
     onOk();
   };
-
-  const send = () => {
-    if (!input.trim()) return;
-    checkText(input, doSend);
-  };
-  const doSend = () => {
-    setMsgs(p => [...p, {
-      id: Date.now(), user: (userInfo?.name||''), av: (userInfo?.avatar||'U'), co: (userInfo?.company||''),
-      text: input,
-      time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
-      likes: 0, replies: 0, replyList: []
-    }]);
+  const send = () => { if (!input.trim()) return; checkText(input, doSend); };
+  const doSend = async () => {
+    const text = input;
     setInput("");
     setWarn(null);
+    const msgData = {
+      user: userInfo?.name || "メンバー",
+      av: userInfo?.avatar || "U",
+      co: userInfo?.company || "",
+      uid: userInfo?.uid || "",
+      text,
+      time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+      likes: 0,
+      replies: 0,
+      replyList: [],
+      createdAt: serverTimestamp(),
+    };
+    try {
+      await addDoc(collection(db, "chats"), msgData);
+    } catch(e) {
+      // Firestoreに書き込み失敗時はローカルに表示
+      setMsgs(p => [...p, { ...msgData, id: Date.now(), createdAt: new Date() }]);
+    }
     setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
-
   const sendReply = (msgId) => {
     const text = (replyInput[msgId] || "").trim();
     if (!text) return;
     checkText(text, () => doSendReply(msgId, text));
   };
-  const doSendReply = (msgId, text) => {
-    setMsgs(p => p.map(m => m.id === msgId ? {
-      ...m,
-      replies: m.replies + 1,
-      replyList: [...(m.replyList || []), {
-        id: Date.now(), user: (userInfo?.name||''), av: (userInfo?.avatar||'U'), co: (userInfo?.company||''),
-        text,
-        time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
-      }]
-    } : m));
+  const doSendReply = async (msgId, text) => {
     setReplyInput(p => ({ ...p, [msgId]: "" }));
     setWarn(null);
+    const reply = {
+      id: Date.now(),
+      user: userInfo?.name || "メンバー",
+      av: userInfo?.avatar || "U",
+      co: userInfo?.company || "",
+      text,
+      time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+    };
+    // ローカル更新
+    setMsgs(p => p.map(m => m.id === msgId ? { ...m, replies: m.replies + 1, replyList: [...(m.replyList || []), reply] } : m));
+    // FirestoreはリアルなドキュメントIDの場合のみ更新
+    if (typeof msgId === "string") {
+      try {
+        const msgRef = doc(db, "chats", msgId);
+        await updateDoc(msgRef, {
+          replies: increment(1),
+          replyList: [...(msgs.find(m => m.id === msgId)?.replyList || []), reply],
+        });
+      } catch(e) {}
+    }
   };
-
+  const doReport = async (msgId, reason) => {
+    setReported(p => ({ ...p, [msgId]: true }));
+    setReportId(null);
+    try {
+      await addDoc(collection(db, "chat_reports"), {
+        msgId,
+        reason,
+        reportedBy: userInfo?.uid || "anonymous",
+        reportedAt: serverTimestamp(),
+      });
+    } catch(e) {}
+  };
   const Modal = ({ children, onClose }) => (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
       <div style={{ width: "100%", maxWidth: 360, background: C.s, borderRadius: 22, border: `1px solid ${C.bd}`, padding: 24, animation: "scaleIn .2s ease" }} onClick={e => e.stopPropagation()}>{children}</div>
     </div>
   );
-
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)" }}>
       {warn && (
@@ -288,11 +288,10 @@ function ChatTab({userInfo}) {
         <Modal onClose={() => setReportId(null)}>
           <h3 style={{ fontSize: 15, fontWeight: 800, color: C.t1, marginBottom: 14 }}>🚨 通報理由</h3>
           {["暴言・誹謗中傷", "営業・スパム", "個人情報", "無関係", "その他"].map(r => (
-            <button key={r} className="tp" onClick={() => { setReported(p => ({ ...p, [reportId]: true })); setReportId(null); }} style={{ width: "100%", padding: 13, borderRadius: 12, border: `1px solid ${C.bd}`, background: "transparent", color: C.t1, fontSize: 13, cursor: "pointer", marginBottom: 6, textAlign: "left" }}>{r}</button>
+            <button key={r} className="tp" onClick={() => doReport(reportId, r)} style={{ width: "100%", padding: 13, borderRadius: 12, border: `1px solid ${C.bd}`, background: "transparent", color: C.t1, fontSize: 13, cursor: "pointer", marginBottom: 6, textAlign: "left" }}>{r}</button>
           ))}
         </Modal>
       )}
-
       <div style={{ flex: 1, overflow: "auto", paddingBottom: 8 }} className="sg">
         {msgs.map(m => {
           const isOpen = openReply === m.id;
@@ -313,10 +312,7 @@ function ChatTab({userInfo}) {
                     <button onClick={() => setLiked(p => ({ ...p, [m.id]: !p[m.id] }))} style={{ background: "none", border: "none", fontSize: 11, color: liked[m.id] ? C.red : C.t3, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3 }}>
                       {liked[m.id] ? "❤️" : "🤍"} {m.likes + (liked[m.id] ? 1 : 0)}
                     </button>
-                    <button
-                      onClick={() => setOpenReply(isOpen ? null : m.id)}
-                      style={{ background: "none", border: "none", fontSize: 11, color: isOpen ? C.acc : C.t3, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3, fontWeight: isOpen ? 700 : 400 }}
-                    >
+                    <button onClick={() => setOpenReply(isOpen ? null : m.id)} style={{ background: "none", border: "none", fontSize: 11, color: isOpen ? C.acc : C.t3, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3, fontWeight: isOpen ? 700 : 400 }}>
                       💬 {totalReplies}
                     </button>
                     {!m.admin && !reported[m.id] && (
@@ -325,7 +321,6 @@ function ChatTab({userInfo}) {
                   </div>
                 </div>
               </div>
-
               {isOpen && (
                 <div style={{ marginLeft: 48, marginTop: 10, animation: "up .2s ease" }}>
                   {(m.replyList || []).map(r => (
@@ -342,19 +337,9 @@ function ChatTab({userInfo}) {
                     </div>
                   ))}
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 9, background: C.accG, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{(userInfo?.avatar||'U')}</div>
-                    <input
-                      value={replyInput[m.id] || ""}
-                      onChange={e => setReplyInput(p => ({ ...p, [m.id]: e.target.value }))}
-                      onKeyDown={e => e.key === "Enter" && sendReply(m.id)}
-                      placeholder="返信を入力…"
-                      style={{ flex: 1, padding: "9px 14px", borderRadius: 12, border: `1px solid ${C.bd}`, background: C.card, color: C.t1, fontSize: 12, outline: "none" }}
-                    />
-                    <button
-                      className="tp"
-                      onClick={() => sendReply(m.id)}
-                      style={{ width: 34, height: 34, borderRadius: 11, border: "none", background: C.acc, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}
-                    >↑</button>
+                    <div style={{ width: 28, height: 28, borderRadius: 9, background: C.accG, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{userInfo?.avatar || "U"}</div>
+                    <input value={replyInput[m.id] || ""} onChange={e => setReplyInput(p => ({ ...p, [m.id]: e.target.value }))} onKeyDown={e => e.key === "Enter" && sendReply(m.id)} placeholder="返信を入力…" style={{ flex: 1, padding: "9px 14px", borderRadius: 12, border: `1px solid ${C.bd}`, background: C.card, color: C.t1, fontSize: 12, outline: "none" }} />
+                    <button className="tp" onClick={() => sendReply(m.id)} style={{ width: 34, height: 34, borderRadius: 11, border: "none", background: C.acc, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>↑</button>
                   </div>
                 </div>
               )}
@@ -363,7 +348,6 @@ function ChatTab({userInfo}) {
         })}
         <div ref={ref} />
       </div>
-
       <div style={{ padding: "14px 0 0", borderTop: `1px solid ${C.bd}` }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="メッセージを入力…" style={{ flex: 1, padding: "14px 18px", borderRadius: 16, border: `1px solid ${C.bd}`, background: C.card, color: C.t1, fontSize: 13, outline: "none" }} />
@@ -373,60 +357,158 @@ function ChatTab({userInfo}) {
     </div>
   );
 }
-
-// EVENTS
+// EVENTS - Firestoreから取得 + applicantsカウント更新
 function EventsTab({applied={}, setApplied=()=>{}, authUser}) {
+  const [evts, setEvts] = useState(EVTS_SEED);
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "events"), snap => {
+      if (!snap.empty) {
+        setEvts(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+      }
+    }, () => {});
+    return () => unsub();
+  }, []);
   const tC={study:C.acc,seminar:C.grn,consul:C.org};
   const tL={study:"📖 勉強会",seminar:"🎤 セミナー",consul:"💼 コンサル"};
   return (
     <div className="sg">
-      {EVTS.map(ev => { const pct=Math.round((ev.applied/ev.cap)*100); const done=applied[ev.id]; const left=ev.cap-ev.applied; return (
-        <Card key={ev.id} style={{ marginBottom: 12 }}>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}><Badge color={tC[ev.type]}>{tL[ev.type]}</Badge><Badge color={left<=5?C.red:C.grn} filled>{ev.tag}</Badge></div>
-          <h3 style={{fontSize:15,fontWeight:700,color:C.t1,lineHeight:1.45,margin:"0 0 10px"}}>{ev.title}</h3>
-          <div style={{display:"flex",flexWrap:"wrap",gap:10,fontSize:12,color:C.t3,marginBottom:14}}><span>📅 {ev.date}</span>{ev.time&&<span>🕐 {ev.time}</span>}</div>
-          <div style={{marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:11,color:C.t3}}>{ev.applied}/{ev.cap}名</span><span style={{fontSize:11,fontWeight:700,color:left<=5?C.red:C.grn}}>残{left}席</span></div><div style={{height:5,borderRadius:3,background:C.bd}}><div style={{height:"100%",borderRadius:3,width:`${pct}%`,background:pct>80?C.red:C.grn,transition:"width .5s"}} /></div></div>
-          <button className="tp" onClick={async()=>{
-              setApplied(p=>({...p,[ev.id]:true}));
+      {evts.map(ev => {
+        const applied_count = ev.applicants || ev.applied || 0;
+        const pct = Math.round((applied_count / ev.cap) * 100);
+        const done = applied[ev.id];
+        const left = ev.cap - applied_count;
+        return (
+          <Card key={ev.id} style={{ marginBottom: 12 }}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+              <Badge color={tC[ev.type]}>{tL[ev.type]}</Badge>
+              <Badge color={left<=5?C.red:C.grn} filled>{ev.tag}</Badge>
+            </div>
+            <h3 style={{fontSize:15,fontWeight:700,color:C.t1,lineHeight:1.45,margin:"0 0 10px"}}>{ev.title}</h3>
+            <div style={{display:"flex",flexWrap:"wrap",gap:10,fontSize:12,color:C.t3,marginBottom:14}}>
+              <span>📅 {ev.date}</span>{ev.time&&<span>🕐 {ev.time}</span>}
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                <span style={{fontSize:11,color:C.t3}}>{applied_count}/{ev.cap}名</span>
+                <span style={{fontSize:11,fontWeight:700,color:left<=5?C.red:C.grn}}>残{left}席</span>
+              </div>
+              <div style={{height:5,borderRadius:3,background:C.bd}}>
+                <div style={{height:"100%",borderRadius:3,width:`${pct}%`,background:pct>80?C.red:C.grn,transition:"width .5s"}} />
+              </div>
+            </div>
+            <button className="tp" onClick={async () => {
+              if (done) return;
+              setApplied(p => ({...p, [ev.id]: true}));
               if (authUser) {
-                // db imported
-                // imported at top
-                addDoc(collection(db,'seminar_entries'),{uid:authUser.uid,eventId:ev.id,eventTitle:ev.title,createdAt:serverTimestamp()}).catch(()=>{});
+                try {
+                  await addDoc(collection(db, "seminar_entries"), {
+                    uid: authUser.uid,
+                    eventId: ev.id,
+                    eventTitle: ev.title,
+                    createdAt: serverTimestamp(),
+                  });
+                  // applicantsカウント更新（Firestoreドキュメントの場合のみ）
+                  if (typeof ev.id === "string" && ev.id.length > 5) {
+                    await updateDoc(doc(db, "events", ev.id), { applicants: increment(1) });
+                  }
+                } catch(e) {}
               }
-            }} disabled={done} style={{width:"100%",padding:14,borderRadius:14,border:done?`1.5px solid ${C.grn}`:"none",background:done?"transparent":C.acc,color:done?C.grn:"#fff",fontSize:13,fontWeight:700,cursor:done?"default":"pointer"}}>{done?"✅ 申込済み":"申し込む"}</button>
-        </Card>
-      ); })}
+            }} disabled={done} style={{width:"100%",padding:14,borderRadius:14,border:done?`1.5px solid ${C.grn}`:"none",background:done?"transparent":C.acc,color:done?C.grn:"#fff",fontSize:13,fontWeight:700,cursor:done?"default":"pointer"}}>
+              {done ? "✅ 申込済み" : "申し込む"}
+            </button>
+          </Card>
+        );
+      })}
     </div>
   );
 }
 
-// PROFILE
+// PROFILE - 通知設定Firestore保存 + 退会ボタン + プラン動的表示
 function ProfileTab({userInfo}) {
-  const [eN,setEN]=useState(true);const [pN,setPN]=useState(true);
-  const Tg=({on,set})=>(<button onClick={()=>set(!on)} className="tp" style={{width:50,height:30,borderRadius:15,border:"none",background:on?C.grn:C.bd,cursor:"pointer",position:"relative",transition:"background .2s"}}><div style={{width:24,height:24,borderRadius:12,background:"#fff",position:"absolute",top:3,left:on?23:3,transition:"left .2s",boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}} /></button>);
+  const [eN, setEN] = useState(true);
+  const [pN, setPN] = useState(true);
+  const [notifLoaded, setNotifLoaded] = useState(false);
+  useEffect(() => {
+    if (!userInfo?.uid || notifLoaded) return;
+    getDoc(doc(db, "users", userInfo.uid)).then(d => {
+      if (d.exists()) {
+        const data = d.data();
+        if (data.emailNotify !== undefined) setEN(data.emailNotify);
+        if (data.pushNotify !== undefined) setPN(data.pushNotify);
+        setNotifLoaded(true);
+      }
+    }).catch(() => {});
+  }, [userInfo]);
+  const saveNotif = async (key, val) => {
+    if (!userInfo?.uid) return;
+    try {
+      await updateDoc(doc(db, "users", userInfo.uid), { [key]: val });
+    } catch(e) {}
+  };
+  const Tg = ({on, set, fsKey}) => (
+    <button onClick={() => {
+      set(!on);
+      saveNotif(fsKey, !on);
+    }} className="tp" style={{width:50,height:30,borderRadius:15,border:"none",background:on?C.grn:C.bd,cursor:"pointer",position:"relative",transition:"background .2s"}}>
+      <div style={{width:24,height:24,borderRadius:12,background:"#fff",position:"absolute",top:3,left:on?23:3,transition:"left .2s",boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}} />
+    </button>
+  );
+  const plan = userInfo?.plan || "free";
+  const planLabel = plan === "pro" || plan === "Pro" ? "Pro" : "Free";
+  const planColor = planLabel === "Pro" ? C.acc : C.t3;
   return (
     <div className="sg">
-      <Card style={{marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:14}}><div style={{width:56,height:56,borderRadius:18,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:800}}>{(userInfo?.avatar||'U')}</div><div style={{flex:1}}><div style={{fontSize:17,fontWeight:800,color:C.t1}}>{(userInfo?.name||'')}</div><div style={{fontSize:12,color:C.t3}}>{(userInfo?.company||'')}</div></div><Badge color={C.acc} filled>Pro</Badge></div></Card>
+      <Card style={{marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:14}}>
+          <div style={{width:56,height:56,borderRadius:18,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:800}}>{userInfo?.avatar || "U"}</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:17,fontWeight:800,color:C.t1}}>{userInfo?.name || ""}</div>
+            <div style={{fontSize:12,color:C.t3}}>{userInfo?.company || ""}</div>
+          </div>
+          <Badge color={planColor} filled>{planLabel}</Badge>
+        </div>
+      </Card>
       <Card style={{marginBottom:12}}>
         <div style={{fontSize:12,fontWeight:700,color:C.t3,marginBottom:14}}>🔔 通知設定</div>
-        {[{label:"メール通知",desc:"新着ニュース・重要なお知らせ",on:eN,set:setEN},{label:"プッシュ通知",desc:"緊急速報・期限リマインド",on:pN,set:setPN}].map((s,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 0",borderBottom:i===0?`1px solid ${C.bd}`:"none"}}><div><div style={{fontSize:13,fontWeight:600,color:C.t1}}>{s.label}</div><div style={{fontSize:11,color:C.t3,marginTop:2}}>{s.desc}</div></div><Tg on={s.on} set={s.set} /></div>
+        {[
+          {label:"メール通知",desc:"新着ニュース・重要なお知らせ",on:eN,set:setEN,fsKey:"emailNotify"},
+          {label:"プッシュ通知",desc:"緊急速報・期限リマインド",on:pN,set:setPN,fsKey:"pushNotify"}
+        ].map((s,i) => (
+          <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 0",borderBottom:i===0?`1px solid ${C.bd}`:"none"}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:C.t1}}>{s.label}</div>
+              <div style={{fontSize:11,color:C.t3,marginTop:2}}>{s.desc}</div>
+            </div>
+            <Tg on={s.on} set={s.set} fsKey={s.fsKey} />
+          </div>
         ))}
       </Card>
-      <Card style={{marginBottom:10}}><button className="tp" onClick={async()=>{await signOut(auth);}} style={{width:"100%",padding:13,borderRadius:12,border:"none",background:"linear-gradient(135deg,#4f8ff7,#7c5cfc)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>ログアウト</button></Card>
-  <Card><button className="tp" style={{width:"100%",padding:13,borderRadius:12,border:`1px solid ${C.red}25`,background:"transparent",color:C.red,fontSize:13,fontWeight:600,cursor:"pointer"}}>退会する</button></Card>
+      <Card style={{marginBottom:10}}>
+        <button className="tp" onClick={async () => { await signOut(auth); }} style={{width:"100%",padding:13,borderRadius:12,border:"none",background:"linear-gradient(135deg,#4f8ff7,#7c5cfc)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>ログアウト</button>
+      </Card>
+      <Card>
+        <button className="tp" onClick={() => {
+          if (window.confirm("本当に退会しますか？\n退会するとすべてのデータが削除されます。")) {
+            const uid = userInfo?.uid;
+            if (uid) {
+              updateDoc(doc(db, "users", uid), { status: "withdrawn", withdrawnAt: serverTimestamp() })
+                .then(() => signOut(auth))
+                .catch(() => signOut(auth));
+            } else {
+              signOut(auth);
+            }
+          }
+        }} style={{width:"100%",padding:13,borderRadius:12,border:`1px solid ${C.red}25`,background:"transparent",color:C.red,fontSize:13,fontWeight:600,cursor:"pointer"}}>退会する</button>
+      </Card>
     </div>
   );
 }
-
 // ICONS
 const INews=()=><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>;
 const IChat=()=><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>;
 const ICal=()=><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>;
 const IUser=()=><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
 const IBell=()=><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>;
-
-// MAIN
 
 // ===== AUTH SCREEN =====
 function AuthScreen() {
@@ -441,7 +523,9 @@ function AuthScreen() {
   const accG = 'linear-gradient(135deg,#4f8ff7,#7c5cfc)';
   const inp = {width:'100%',padding:'13px 15px',borderRadius:11,border:'1.5px solid #1f2535',background:'#0f1218',color:'#eef2f7',fontSize:14,outline:'none',fontFamily:F,boxSizing:'border-box',marginBottom:10,display:'block'};
   const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true); setError('');
+    e.preventDefault();
+    setLoading(true);
+    setError('');
     try {
       if (mode === 'login') {
         await signInWithEmailAndPassword(auth, email, pass);
@@ -449,8 +533,7 @@ function AuthScreen() {
         const r = await createUserWithEmailAndPassword(auth, email, pass);
         await updateProfile(r.user, {displayName: name});
         await setDoc(doc(db, 'users', r.user.uid), {
-          uid:r.user.uid, name, company, email,
-          plan:'free', role:'member', status:'active', createdAt:serverTimestamp()
+          uid: r.user.uid, name, company, email, plan:'free', role:'member', status:'active', createdAt:serverTimestamp()
         });
       }
     } catch(err) {
@@ -463,7 +546,9 @@ function AuthScreen() {
         'auth/invalid-credential':'メールアドレスまたはパスワードが違います',
       };
       setError(M[err.code] || 'エラーが発生しました');
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
   const BT = String.fromCharCode(96);
   return (
@@ -492,7 +577,7 @@ function AuthScreen() {
             <button type="submit" disabled={loading} style={{width:'100%',padding:14,borderRadius:12,border:'none',background:loading?'#1f2535':accG,color:'#fff',fontSize:14,fontWeight:700,cursor:loading?'not-allowed':'pointer',marginTop:8,fontFamily:F,transition:'all .2s'}}>
               {loading?'処理中...':(mode==='login'?'ログイン':'アカウント作成')}
             </button>
-          {mode==='login'&&<button type="button" onClick={async()=>{
+            {mode==='login'&&<button type="button" onClick={async()=>{
               if(!email){setError('メールアドレスを入力してください');return;}
               try{await sendPasswordResetEmail(auth,email);setError('リセットメールを送信しました');}
               catch(e){setError('メール送信に失敗しました');}
@@ -519,19 +604,20 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!authUser) { setUserInfo(null); return; }
-    // db imported at top
     getDoc(doc(db, 'users', authUser.uid)).then(d => {
       const data = d.exists() ? d.data() : {};
       const name = data.name || authUser.displayName || 'メンバー';
       setUserInfo({ name, company: data.company || '', avatar: name.charAt(0), plan: data.plan || 'free', uid: authUser.uid, email: authUser.email });
     });
     const q = query(collection(db, 'news'), orderBy('createdAt', 'desc'));
-    const unsub2 = onSnapshot(q, snap => { setLiveNews(snap.docs.map(d => ({id:d.id,...d.data()}))); }, ()=>{});
+    const unsub2 = onSnapshot(q, snap => {
+      setLiveNews(snap.docs.map(d => ({id:d.id,...d.data()})));
+    }, () => {});
     getDocs(collection(db, 'seminar_entries')).then(snap => {
       const applied = {};
       snap.docs.forEach(d => { if (d.data().uid === authUser.uid) applied[d.data().eventId] = true; });
       setSeminarApplied(applied);
-    }).catch(()=>{});
+    }).catch(() => {});
     return () => unsub2();
   }, [authUser]);
   useEffect(() => { const t = setTimeout(() => setSplash(false), 1600); return () => clearTimeout(t); }, []);
@@ -543,18 +629,22 @@ export default function App() {
   );
   if (!authUser) return <AuthScreen />;
   const titles={news:"ドリプロ新聞",chat:"コミュニティ",events:"セミナー",profile:"マイページ"};
-  const nav=[{id:"news",label:"新聞",Icon:INews,badge:NEWS.filter(n=>n.imp==="high").length},{id:"chat",label:"トーク",Icon:IChat,badge:2},{id:"events",label:"セミナー",Icon:ICal,badge:0},{id:"profile",label:"設定",Icon:IUser,badge:0}];
-
+  // navバッジ: liveNewsの重要記事数を動的に
+  const newsHighCount = (liveNews || NEWS).filter(n => (n.imp || n.importance) === "high").length;
+  const nav=[
+    {id:"news", label:"新聞", Icon:INews, badge:newsHighCount},
+    {id:"chat", label:"トーク", Icon:IChat, badge:0},
+    {id:"events", label:"セミナー", Icon:ICal, badge:0},
+    {id:"profile", label:"設定", Icon:IUser, badge:0}
+  ];
   if (splash) return (<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`radial-gradient(ellipse at 50% 35%,#111b33 0%,${C.bg} 65%)`,fontFamily:F}}><style>{CSS}</style><div style={{width:68,height:68,borderRadius:20,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,animation:"glow 2s infinite",marginBottom:16}}>📰</div><div style={{fontSize:24,fontWeight:900,color:"#fff",animation:"up .4s ease .2s both"}}>ドリプロ</div><div style={{fontSize:11,color:C.t3,marginTop:5,animation:"up .4s ease .35s both",letterSpacing:2.5}}>障害福祉GH特化ニュース</div></div>);
-
   const Content=()=>({news:<NewsTab news={liveNews||[]} userInfo={userInfo}/>,chat:<ChatTab userInfo={userInfo}/>,events:<EventsTab applied={seminarApplied} setApplied={setSeminarApplied} authUser={authUser}/>,profile:<ProfileTab userInfo={userInfo}/>})[tab]||<NewsTab news={liveNews||[]} userInfo={userInfo}/>;
-
   if (!mobile) return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,display:"flex"}}><style>{CSS}</style>
       <aside style={{width:230,minHeight:"100vh",background:C.s,borderRight:`1px solid ${C.bd}`,position:"fixed",left:0,top:0,bottom:0,display:"flex",flexDirection:"column",zIndex:40}}>
         <div style={{display:"flex",alignItems:"center",gap:10,padding:"24px 22px 28px"}}><div style={{width:36,height:36,borderRadius:11,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17}}>📰</div><div><span style={{fontSize:17,fontWeight:900,color:C.t1}}>ドリプロ</span><div style={{fontSize:9,color:C.t3,letterSpacing:1}}>GH特化ニュース</div></div></div>
         <nav style={{flex:1,padding:"0 8px"}}>{nav.map(({id,label,Icon,badge})=>{const a=tab===id;return(<button key={id} onClick={()=>setTab(id)} className="tp" style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 16px",border:"none",borderRadius:12,background:a?C.accS:"transparent",cursor:"pointer",color:a?C.acc:C.t2,marginBottom:2}}><Icon/><span style={{fontSize:13,fontWeight:a?700:500}}>{label}</span>{badge>0&&<span style={{marginLeft:"auto",minWidth:20,height:20,borderRadius:10,background:C.red,color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{badge}</span>}</button>);})}</nav>
-        <div style={{padding:"16px 18px",borderTop:`1px solid ${C.bd}`,display:"flex",alignItems:"center",gap:10}}><div style={{width:36,height:36,borderRadius:11,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:14,fontWeight:700}}>{(userInfo?.avatar||'U')}</div><div><div style={{fontSize:12,fontWeight:600,color:C.t1}}>{(userInfo?.name||'')}</div><div style={{fontSize:10,color:C.t3}}>{(userInfo?.company||'')}</div></div></div>
+        <div style={{padding:"16px 18px",borderTop:`1px solid ${C.bd}`,display:"flex",alignItems:"center",gap:10}}><div style={{width:36,height:36,borderRadius:11,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:14,fontWeight:700}}>{userInfo?.avatar||"U"}</div><div><div style={{fontSize:12,fontWeight:600,color:C.t1}}>{userInfo?.name||""}</div><div style={{fontSize:10,color:C.t3}}>{userInfo?.company||""}</div></div></div>
       </aside>
       <div style={{flex:1,marginLeft:230,minHeight:"100vh"}}>
         <header className="gl" style={{position:"sticky",top:0,zIndex:30,borderBottom:`1px solid ${C.bd}`,padding:"15px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><h1 style={{fontSize:18,fontWeight:900,color:C.t1,margin:0}}>{titles[tab]}</h1><div style={{width:38,height:38,borderRadius:12,border:`1px solid ${C.bd}`,background:"rgba(255,255,255,0.03)",display:"flex",alignItems:"center",justifyContent:"center",color:C.t2,position:"relative",cursor:"pointer"}}><IBell/><div style={{position:"absolute",top:-2,right:-2,width:8,height:8,borderRadius:4,background:C.red}}/></div></header>
@@ -562,10 +652,9 @@ export default function App() {
       </div>
     </div>
   );
-
   return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,maxWidth:480,margin:"0 auto",position:"relative"}}><style>{CSS}</style>
-      <header className="gl" style={{position:"sticky",top:0,zIndex:50,borderBottom:`1px solid ${C.bd}`,padding:"12px 16px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:32,height:32,borderRadius:10,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>📰</div><span style={{fontSize:16,fontWeight:900,color:C.t1}}>{titles[tab]}</span></div><div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{width:34,height:34,borderRadius:10,border:`1px solid ${C.bd}`,display:"flex",alignItems:"center",justifyContent:"center",color:C.t2,position:"relative"}}><IBell/><div style={{position:"absolute",top:-1,right:-1,width:7,height:7,borderRadius:4,background:C.red}}/></div><div style={{width:32,height:32,borderRadius:10,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,fontWeight:700}}>{(userInfo?.avatar||'U')}</div></div></div></header>
+      <header className="gl" style={{position:"sticky",top:0,zIndex:50,borderBottom:`1px solid ${C.bd}`,padding:"12px 16px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:32,height:32,borderRadius:10,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>📰</div><span style={{fontSize:16,fontWeight:900,color:C.t1}}>{titles[tab]}</span></div><div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{width:34,height:34,borderRadius:10,border:`1px solid ${C.bd}`,display:"flex",alignItems:"center",justifyContent:"center",color:C.t2,position:"relative"}}><IBell/><div style={{position:"absolute",top:-1,right:-1,width:7,height:7,borderRadius:4,background:C.red}}/></div><div style={{width:32,height:32,borderRadius:10,background:C.accG,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,fontWeight:700}}>{userInfo?.avatar||"U"}</div></div></div></header>
       <main style={{padding:"14px 14px 100px",animation:"fadeIn .2s ease"}}><Content/></main>
       <nav className="gl" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,borderTop:`1px solid ${C.bd}`,display:"flex",padding:"4px 6px 24px",zIndex:50}}>
         {nav.map(({id,label,Icon,badge})=>{const a=tab===id;return(<button key={id} onClick={()=>setTab(id)} className="tp" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,border:"none",background:"none",cursor:"pointer",padding:"8px 0",color:a?C.acc:C.t3}}><div style={{position:"relative",width:46,height:30,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:15,background:a?C.accS:"transparent",transition:"background .2s"}}><Icon/>{badge>0&&<div style={{position:"absolute",top:-2,right:1,minWidth:16,height:16,borderRadius:8,background:C.red,color:"#fff",fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",border:`2px solid ${C.bg}`}}>{badge}</div>}</div><span style={{fontSize:10,fontWeight:a?700:500}}>{label}</span></button>);})}

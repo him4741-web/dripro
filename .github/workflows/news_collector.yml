@@ -1,23 +1,21 @@
 name: Auto News Collector
-
 on:
   schedule:
-      - cron: '0 23 * * *'
-        workflow_dispatch:
-
-        jobs:
-          collect-news:
-              runs-on: ubuntu-latest
-                  timeout-minutes: 30
-                      steps:
-                            - uses: actions/checkout@v4
-                                  - uses: actions/setup-python@v4
-                                          with:
-                                                    python-version: '3.11'
-                                                          - name: Install dependencies
-                                                                  run: pip install firebase-admin google-generativeai requests
-                                                                        - name: Run news collector
-                                                                                env:
-                                                                                          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-                                                                                                    GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-                                                                                                            run: python backend/news_collector.py
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+jobs:
+  collect-news:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install firebase-admin google-generativeai requests
+      - name: Run news collector
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python backend/news_collector.py
